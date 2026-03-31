@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Meridian — Alias Registry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --obsidian: #060608;
+            --deep: #0A0A0F;
+            --panel: #0E0E15;
+            --surface: #13131E;
+            --surface2: #181825;
+            --rim: rgba(255, 255, 255, .06);
+            --rim-hover: rgba(255, 255, 255, .12);
+            --gold: #C9A84C;
+            --gold-light: #E4C778;
+            --gold-dim: rgba(201, 168, 76, .12);
+            --platinum: #A8AECC;
+            --snow: #E9EAF4;
+            --green: #4ADE80;
+            --red: #F87171;
+            --glow-gold: 0 0 60px rgba(201, 168, 76, .08);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--obsidian);
+            color: var(--snow);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Grain */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+        }
+
+        /* Ambient */
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse 55% 35% at 10% 8%, rgba(201, 168, 76, .07) 0%, transparent 70%),
+                radial-gradient(ellipse 45% 40% at 88% 6%, rgba(110, 90, 200, .05) 0%, transparent 65%),
+                radial-gradient(ellipse 50% 45% at 60% 92%, rgba(201, 168, 76, .04) 0%, transparent 70%);
+        }
+
+        /* ══ LOCK SCREEN ══ */
+        #lockOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(4, 4, 8, .97);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 2.5s ease;
+            backdrop-filter: blur(24px);
+        }
+
+        #lockOverlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .lock-sigil {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 96px;
+            font-weight: 300;
+            color: var(--gold);
+            opacity: .18;
+            letter-spacing: -.04em;
+            line-height: 1;
+            animation: breathe 4s ease-in-out infinite;
+        }
+
+        @keyframes breathe {
+
+            0%,
+            100% {
+                opacity: .18;
+                transform: scale(1)
+            }
+
+            50% {
+                opacity: .28;
+                transform: scale(1.04)
+            }
+        }
+
+        .lock-label {
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: .4em;
+            text-transform: uppercase;
+            color: var(--gold);
+            opacity: .6;
+        }
+
+        .lock-hint {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 14px;
+            font-weight: 300;
+            font-style: italic;
+            color: var(--platinum);
+            opacity: .4;
+            letter-spacing: .06em;
+        }
+
+        #spaceCounter {
+            display: flex;
+            gap: 8px;
+        }
+
+        .space-pip {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: 1px solid rgba(201, 168, 76, .3);
+            background: transparent;
+            transition: background .2s, border-color .2s;
+        }
+
+        .space-pip.lit {
+            background: var(--gold);
+            border-color: var(--gold);
+            box-shadow: 0 0 8px rgba(201, 168, 76, .6);
+        }
+
+        /* ══ MASTHEAD ══ */
+        .masthead {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 26px 48px 20px;
+            border-bottom: 1px solid var(--rim);
+        }
+
+        .wordmark {
+            display: flex;
+            align-items: baseline;
+            gap: 14px;
+        }
+
+        .wordmark-name {
+            font-family: 'Cormorant Garamond', serif;
+            font-weight: 300;
+            font-size: 26px;
+            letter-spacing: .22em;
+            text-transform: uppercase;
+            color: var(--snow);
+        }
+
+        .wordmark-rule {
+            width: 1px;
+            height: 20px;
+            background: var(--gold);
+            opacity: .45;
+            align-self: center;
+            transform: rotate(15deg);
+        }
+
+        .wordmark-sub {
+            font-size: 9px;
+            font-weight: 500;
+            letter-spacing: .3em;
+            text-transform: uppercase;
+            color: var(--gold);
+            opacity: .8;
+        }
+
+        .masthead-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .timer-ring {
+            position: relative;
+            width: 36px;
+            height: 36px;
+        }
+
+        .timer-ring svg {
+            transform: rotate(-90deg);
+        }
+
+        .timer-ring circle {
+            transition: stroke-dashoffset .9s linear;
+        }
+
+        .timer-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--gold);
+            letter-spacing: .05em;
+        }
+
+        .session-badge {
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: .22em;
+            text-transform: uppercase;
+            color: var(--green);
+            opacity: .8;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .session-badge::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px rgba(74, 222, 128, .6);
+            animation: pulse-dot 2.4s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1)
+            }
+
+            50% {
+                opacity: .5;
+                transform: scale(.7)
+            }
+        }
+
+        /* ══ LAYOUT ══ */
+        .layout {
+            position: relative;
+            z-index: 5;
+            max-width: 1160px;
+            margin: 0 auto;
+            padding: 36px 48px 60px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* ══ CARDS ══ */
+        .card {
+            border: 1px solid var(--rim);
+            border-radius: 6px;
+            background: var(--panel);
+            overflow: hidden;
+            transition: border-color .3s;
+        }
+
+        .card:hover {
+            border-color: rgba(201, 168, 76, .14);
+        }
+
+        .card-head {
+            padding: 16px 22px 14px;
+            border-bottom: 1px solid var(--rim);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .card-head::after {
+            content: "";
+            position: absolute;
+            bottom: -1px;
+            left: 22px;
+            right: 22px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(201, 168, 76, .25), transparent);
+            opacity: 0;
+            transition: opacity .3s;
+        }
+
+        .card:hover .card-head::after {
+            opacity: 1;
+        }
+
+        .card-title {
+            font-size: 8.5px;
+            font-weight: 600;
+            letter-spacing: .38em;
+            text-transform: uppercase;
+            color: var(--gold);
+        }
+
+        .card-icon {
+            font-size: 14px;
+            color: var(--gold);
+            opacity: .35;
+        }
+
+        .card-body {
+            padding: 22px;
+        }
+
+        /* Full-width card */
+        .card.full {
+            grid-column: 1 / -1;
+        }
+
+        /* ══ FORM ELEMENTS ══ */
+        .field {
+            margin-bottom: 14px;
+        }
+
+        .field-label {
+            font-size: 8px;
+            font-weight: 600;
+            letter-spacing: .3em;
+            text-transform: uppercase;
+            color: var(--platinum);
+            opacity: .5;
+            margin-bottom: 7px;
+            display: block;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--rim);
+            color: var(--snow);
+            border-radius: 4px;
+            padding: 11px 14px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: .04em;
+            outline: none;
+            transition: border-color .25s, box-shadow .25s;
+        }
+
+        input[type="password"] {
+            letter-spacing: .12em;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: rgba(201, 168, 76, .4);
+            box-shadow: 0 0 0 3px rgba(201, 168, 76, .05);
+        }
+
+        ::placeholder {
+            color: rgba(168, 174, 204, .3);
+        }
+
+        /* ══ BUTTONS ══ */
+        .btn {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--rim);
+            background: transparent;
+            color: var(--platinum);
+            padding: 11px 18px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 8.5px;
+            font-weight: 600;
+            letter-spacing: .25em;
+            text-transform: uppercase;
+            transition: all .25s;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            border-color: var(--rim-hover);
+            color: var(--snow);
+            background: rgba(255, 255, 255, .03);
+        }
+
+        .btn.gold {
+            border-color: rgba(201, 168, 76, .35);
+            color: var(--gold);
+            background: rgba(201, 168, 76, .04);
+        }
+
+        .btn.gold:hover {
+            background: rgba(201, 168, 76, .1);
+            border-color: rgba(201, 168, 76, .6);
+            color: var(--gold-light);
+            box-shadow: 0 0 24px rgba(201, 168, 76, .12);
+        }
+
+        .btn.gold::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(201, 168, 76, .05), transparent);
+            animation: shimmer 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%)
+            }
+
+            60%,
+            100% {
+                transform: translateX(100%)
+            }
+        }
+
+        .btn.danger {
+            border-color: rgba(248, 113, 113, .3);
+            color: var(--red);
+            opacity: .7;
+        }
+
+        .btn.danger:hover {
+            opacity: 1;
+            background: rgba(248, 113, 113, .06);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        /* ══ OUTPUT / RESULT DISPLAY ══ */
+        .result-box {
+            margin-top: 16px;
+            border: 1px solid var(--rim);
+            border-radius: 4px;
+            background: var(--surface);
+            padding: 16px 18px;
+            min-height: 54px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .result-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .result-label {
+            font-size: 8px;
+            font-weight: 600;
+            letter-spacing: .3em;
+            text-transform: uppercase;
+            color: var(--platinum);
+            opacity: .4;
+            min-width: 68px;
+            flex-shrink: 0;
+        }
+
+        .result-val {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 18px;
+            font-weight: 400;
+            letter-spacing: .04em;
+            color: var(--gold-light);
+            word-break: break-all;
+        }
+
+        .result-val.mono {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: .08em;
+            color: var(--platinum);
+        }
+
+        .result-val.masked {
+            color: rgba(168, 174, 204, .4);
+            letter-spacing: .22em;
+            font-style: italic;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 15px;
+        }
+
+        .result-empty {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 13px;
+            font-weight: 300;
+            font-style: italic;
+            color: rgba(168, 174, 204, .25);
+            letter-spacing: .06em;
+        }
+
+        .result-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--rim), transparent);
+            margin: 2px 0;
+        }
+
+        /* ══ STATUS PILL ══ */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 8.5px;
+            font-weight: 600;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            border-radius: 2px;
+            border: 1px solid;
+        }
+
+        .status-pill.ok {
+            color: var(--green);
+            border-color: rgba(74, 222, 128, .25);
+            background: rgba(74, 222, 128, .04);
+        }
+
+        .status-pill.ok::before {
+            content: "✓ ";
+        }
+
+        .status-pill.err {
+            color: var(--red);
+            border-color: rgba(248, 113, 113, .25);
+            background: rgba(248, 113, 113, .04);
+        }
+
+        .status-pill.err::before {
+            content: "✗ ";
+        }
+
+        /* ══ PRIVATE SECTION ══ */
+        #loginCard {
+            transition: all .35s;
+        }
+
+        #privateCard {
+            display: none;
+            transition: all .35s;
+        }
+
+        /* ══ MAPPING TABLE ══ */
+        .mapping-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 18px;
+        }
+
+        .mapping-table th {
+            font-size: 7.5px;
+            font-weight: 600;
+            letter-spacing: .32em;
+            text-transform: uppercase;
+            color: var(--platinum);
+            opacity: .4;
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--rim);
+        }
+
+        .mapping-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, .03);
+            vertical-align: middle;
+        }
+
+        .mapping-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .mapping-table tr:hover td {
+            background: rgba(201, 168, 76, .02);
+        }
+
+        .cell-gmid {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--platinum);
+            opacity: .6;
+            letter-spacing: .05em;
+        }
+
+        .cell-alias {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 17px;
+            font-weight: 400;
+            color: var(--gold-light);
+            letter-spacing: .04em;
+        }
+
+        .cell-name {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--snow);
+            letter-spacing: .04em;
+        }
+
+        .cell-masked {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 14px;
+            font-weight: 300;
+            font-style: italic;
+            color: rgba(168, 174, 204, .35);
+            letter-spacing: .12em;
+        }
+
+        .reveal-btn {
+            font-size: 8px;
+            font-weight: 600;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            color: var(--gold);
+            opacity: .5;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px 6px;
+            transition: opacity .2s;
+        }
+
+        .reveal-btn:hover {
+            opacity: 1;
+        }
+
+        /* ══ INFO STRIP ══ */
+        .info-strip {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 18px;
+            border: 1px solid var(--rim);
+            border-radius: 4px;
+            background: rgba(201, 168, 76, .02);
+        }
+
+        .info-text {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 13px;
+            font-weight: 300;
+            font-style: italic;
+            color: rgba(168, 174, 204, .4);
+            letter-spacing: .04em;
+        }
+
+        .info-count {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 20px;
+            font-weight: 400;
+            color: var(--gold);
+            opacity: .6;
+        }
+
+        /* ══ SCROLLBAR ══ */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--deep);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(201, 168, 76, .2);
+            border-radius: 2px;
+        }
+
+        /* ══ ANIMATIONS ══ */
+        .card {
+            animation: fadeUp .4s ease both;
+        }
+
+        .card:nth-child(1) {
+            animation-delay: .05s
+        }
+
+        .card:nth-child(2) {
+            animation-delay: .1s
+        }
+
+        .card:nth-child(3) {
+            animation-delay: .15s
+        }
+
+        .card:nth-child(4) {
+            animation-delay: .2s
+        }
+
+        .card:nth-child(5) {
+            animation-delay: .25s
+        }
+
+        .card:nth-child(6) {
+            animation-delay: .3s
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(14px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        /* ══ FOOTER ══ */
+        .footer {
+            position: relative;
+            z-index: 10;
+            border-top: 1px solid var(--rim);
+            padding: 12px 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .footer-text {
+            font-size: 9px;
+            font-weight: 500;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            color: rgba(168, 174, 204, .2);
+        }
+
+        .footer-ver {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 13px;
+            font-weight: 300;
+            color: rgba(201, 168, 76, .25);
+            letter-spacing: .1em;
+        }
+
+        @media(max-width:860px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 24px
+            }
+
+            .card.full {
+                grid-column: 1
+            }
+
+            .masthead {
+                padding: 20px 24px
+            }
+
+            .footer {
+                padding: 12px 24px
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ══ LOCK SCREEN ══ -->
+    <div id="lockOverlay">
+        <div class="lock-sigil">◈</div>
+        <div class="lock-label">Session Secured</div>
+        <div class="lock-hint">Press space five times to authenticate</div>
+        <div id="spaceCounter">
+            <div class="space-pip" id="pip0"></div>
+            <div class="space-pip" id="pip1"></div>
+            <div class="space-pip" id="pip2"></div>
+            <div class="space-pip" id="pip3"></div>
+            <div class="space-pip" id="pip4"></div>
+        </div>
+    </div>
+
+    <!-- ══ MASTHEAD ══ -->
+    <header class="masthead">
+        <div class="wordmark">
+            <div class="wordmark-name">Meridian</div>
+            <div class="wordmark-rule"></div>
+            <div class="wordmark-sub">Alias Registry</div>
+        </div>
+        <div class="masthead-right">
+            <div id="sessionBadge" class="session-badge" style="display:none">Private Session</div>
+            <div class="timer-ring" id="timerRing" style="display:none" title="Session auto-lock countdown">
+                <svg width="36" height="36" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="2" />
+                    <circle id="timerArc" cx="18" cy="18" r="15" fill="none" stroke="#C9A84C" stroke-width="2"
+                        stroke-linecap="round" stroke-dasharray="94.25" stroke-dashoffset="0" opacity=".65" />
+                </svg>
+                <div class="timer-label" id="timerLabel">—</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ══ MAIN LAYOUT ══ -->
+    <div class="layout">
+
+        <!-- Info strip -->
+        <div class="info-strip">
+            <div class="info-text">Deterministic alias system — 100 × 100 combinations. GMID never transmitted in plain
+                form.</div>
+            <div class="info-count">10,000</div>
+        </div>
+
+        <!-- CARD 1: GMID → Alias -->
+        <div class="card">
+            <div class="card-head">
+                <div class="card-title">GMID → Alias</div>
+                <div class="card-icon">◈</div>
+            </div>
+            <div class="card-body">
+                <div class="field">
+                    <label class="field-label">GMID (hex identifier)</label>
+                    <input type="text" id="gmidInput" placeholder="e.g. a3f9c12b4e7d8091…" spellcheck="false"
+                        autocomplete="off">
+                </div>
+                <div class="btn-row">
+                    <button class="btn gold" onclick="convertToAlias()">Generate Alias</button>
+                    <button class="btn" onclick="clearField('gmidInput','aliasResult')">Clear</button>
+                </div>
+                <div class="result-box" id="aliasResult">
+                    <div class="result-empty">Awaiting GMID…</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARD 2: Alias → GMID -->
+        <div class="card">
+            <div class="card-head">
+                <div class="card-title">Alias → GMID</div>
+                <div class="card-icon">⊞</div>
+            </div>
+            <div class="card-body">
+                <div class="field">
+                    <label class="field-label">Alias (two-word handle)</label>
+                    <input type="text" id="aliasInput" placeholder="e.g. SilentDragon" spellcheck="false"
+                        autocomplete="off">
+                </div>
+                <div class="btn-row">
+                    <button class="btn gold" onclick="convertToGMID()">Resolve GMID</button>
+                    <button class="btn" onclick="clearField('aliasInput','gmidResult')">Clear</button>
+                </div>
+                <div class="result-box" id="gmidResult">
+                    <div class="result-empty">Awaiting alias…</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARD 3: Login -->
+        <div class="card" id="loginCard">
+            <div class="card-head">
+                <div class="card-title">Private Access</div>
+                <div class="card-icon">⊛</div>
+            </div>
+            <div class="card-body">
+                <p
+                    style="font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:300;font-style:italic;color:rgba(168,174,204,.55);margin-bottom:18px;line-height:1.6;">
+                    Private mappings link a GMID and alias to a verified real name.<br>
+                    Stored locally — AES-256-GCM encrypted with PBKDF2.
+                </p>
+                <div class="field">
+                    <label class="field-label">Access Passphrase</label>
+                    <input type="password" id="password" placeholder="Enter passphrase" autocomplete="current-password">
+                </div>
+                <div class="btn-row">
+                    <button class="btn gold" onclick="login()">Authenticate</button>
+                </div>
+                <div id="loginStatus" style="margin-top:12px"></div>
+            </div>
+        </div>
+
+        <!-- CARD 4: Private Mapping (shown after login) -->
+        <div class="card" id="privateCard">
+            <div class="card-head">
+                <div class="card-title">Private Mapping</div>
+                <div class="card-icon">◉</div>
+            </div>
+            <div class="card-body">
+                <div class="field">
+                    <label class="field-label">GMID</label>
+                    <input type="text" id="privateGmid" placeholder="Identifier hex…" spellcheck="false"
+                        autocomplete="off">
+                </div>
+                <div class="field">
+                    <label class="field-label">Real Name (sensitive)</label>
+                    <input type="text" id="realName" placeholder="Full verified name…" autocomplete="off">
+                </div>
+                <div class="btn-row">
+                    <button class="btn gold" onclick="addPrivateMapping()">Commit Mapping</button>
+                    <button class="btn danger" onclick="lockNow()">Lock Session</button>
+                </div>
+                <div id="privateStatus" style="margin-top:12px"></div>
+
+                <!-- Query -->
+                <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--rim)">
+                    <label class="field-label">Query GMID</label>
+                    <div style="display:flex;gap:10px">
+                        <input type="text" id="privateGmidQuery" placeholder="Resolve a GMID to its private record…"
+                            spellcheck="false" style="flex:1">
+                        <button class="btn gold" style="flex-shrink:0" onclick="getPrivateMapping()">Resolve</button>
+                    </div>
+                    <div class="result-box" id="privateQueryResult" style="margin-top:12px">
+                        <div class="result-empty">Awaiting query…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARD 5: Full-width mapping table -->
+        <div class="card full" id="tableCard" style="display:none">
+            <div class="card-head">
+                <div class="card-title">Registered Mappings</div>
+                <div class="card-icon">▦</div>
+            </div>
+            <div class="card-body" style="overflow-x:auto">
+                <table class="mapping-table" id="mappingTable">
+                    <thead>
+                        <tr>
+                            <th>GMID (Masked)</th>
+                            <th>Alias</th>
+                            <th>Real Name</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mappingTbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ══ FOOTER ══ -->
+    <div class="footer">
+        <div class="footer-text">Meridian Group — Private Exchange Protocol</div>
+        <div class="footer-ver">Alias Registry v2</div>
+    </div>
+
+    <script>
+        /* ────────────────────────────────
+           ALIAS ENGINE
+        ──────────────────────────────── */
+        const adjectives = ['Blue', 'Red', 'Green', 'Swift', 'Bold', 'Wise', 'Fierce', 'Calm', 'Silent', 'Brave', 'Mystic', 'Dark', 'Light', 'Stormy', 'Fiery', 'Icy', 'Golden', 'Silver', 'Shadow', 'Thunder', 'Ancient', 'Eternal', 'Vivid', 'Quiet', 'Loud', 'Sharp', 'Dull', 'Bright', 'Dim', 'Hot', 'Cold', 'Wet', 'Dry', 'Fast', 'Slow', 'Heavy', 'Strong', 'Weak', 'Tall', 'Short', 'Long', 'Brief', 'Deep', 'Shallow', 'Wide', 'Narrow', 'Old', 'New', 'Young', 'Aged', 'Pure', 'Tainted', 'Clear', 'Cloudy', 'Sunny', 'Rainy', 'Windy', 'Still', 'Wild', 'Tame', 'Free', 'Bound', 'Happy', 'Sad', 'Angry', 'Peaceful', 'Chaotic', 'Orderly', 'Elegant', 'Clumsy', 'Graceful', 'Awkward', 'Smart', 'Clever', 'Rich', 'Poor', 'Full', 'Empty', 'Open', 'Closed', 'Locked', 'Unlocked', 'Safe', 'Dangerous', 'Friendly', 'Hostile', 'Warm', 'Cool', 'Soft', 'Hard', 'Smooth', 'Rough', 'Shiny', 'Matte', 'Vibrant', 'Faded', 'Iron', 'Velvet'];
+        const nouns = ['Dragon', 'Phoenix', 'Tiger', 'Eagle', 'Wolf', 'Fox', 'Bear', 'Lion', 'Hawk', 'Raven', 'Shark', 'Panther', 'Owl', 'Falcon', 'Viper', 'Cobra', 'Lynx', 'Stag', 'Bull', 'Horse', 'Snake', 'Spider', 'Scorpion', 'Whale', 'Dolphin', 'Fish', 'Bird', 'Cat', 'Dog', 'Mouse', 'Bat', 'Deer', 'Elk', 'Moose', 'Rabbit', 'Hare', 'Squirrel', 'Beaver', 'Otter', 'Seal', 'Walrus', 'Penguin', 'Ostrich', 'Peacock', 'Parrot', 'Crow', 'Dove', 'Swan', 'Goose', 'Duck', 'Pig', 'Cow', 'Sheep', 'Goat', 'Donkey', 'Mule', 'Camel', 'Llama', 'Elephant', 'Rhino', 'Hippo', 'Giraffe', 'Zebra', 'Antelope', 'Buffalo', 'Bison', 'Yak', 'Monkey', 'Ape', 'Gorilla', 'Chimp', 'Lemur', 'Sloth', 'Koala', 'Kangaroo', 'Platypus', 'Turtle', 'Tortoise', 'Lizard', 'Gecko', 'Iguana', 'Alligator', 'Crocodile', 'Frog', 'Toad', 'Salamander', 'Newt', 'Butterfly', 'Moth', 'Bee', 'Wasp', 'Condor', 'Manta', 'Narwhal', 'Puma', 'Jaguar', 'Raptor', 'Coyote', 'Badger'];
+
+        const aliasCache = {}, gmidCache = {};
+
+        function hexToInt(h) { return parseInt(h, 16) || 0; }
+
+        function generateAlias(gmid) {
+            if (!gmid) return null;
+            const clean = gmid.replace(/[^a-fA-F0-9]/g, '').toLowerCase().padEnd(16, '0');
+            const p1 = hexToInt(clean.slice(0, 8)) % adjectives.length;
+            const p2 = hexToInt(clean.slice(8, 16)) % nouns.length;
+            const alias = adjectives[p1] + nouns[p2];
+            aliasCache[gmid] = alias;
+            gmidCache[alias] = gmid;
+            return alias;
+        }
+
+        function maskGMID(gmid) {
+            if (!gmid) return '—';
+            const s = gmid.replace(/[^a-fA-F0-9]/g, '');
+            if (s.length < 8) return gmid.substring(0, 4) + '…';
+            return s.substring(0, 4) + '·'.repeat(Math.max(4, s.length - 8)) + s.substring(s.length - 4);
+        }
+
+        function convertToAlias() {
+            const gmid = document.getElementById('gmidInput').value.trim();
+            if (!gmid) { showResult('aliasResult', 'error', 'Enter a GMID first.'); return; }
+            const alias = generateAlias(gmid);
+            const masked = maskGMID(gmid);
+            const box = document.getElementById('aliasResult');
+            box.innerHTML = `
+    <div class="result-row">
+      <span class="result-label">Alias</span>
+      <span class="result-val">${alias}</span>
+    </div>
+    <div class="result-divider"></div>
+    <div class="result-row">
+      <span class="result-label">GMID</span>
+      <span class="result-val masked" title="${gmid}">${masked}</span>
+    </div>
+  `;
+        }
+
+        function convertToGMID() {
+            const alias = document.getElementById('aliasInput').value.trim();
+            if (!alias) { showResult('gmidResult', 'error', 'Enter an alias first.'); return; }
+            const gmid = gmidCache[alias];
+            const box = document.getElementById('gmidResult');
+            if (!gmid) {
+                box.innerHTML = `<div class="result-empty" style="color:rgba(248,113,113,.45)">Alias not found in session registry. Generate it first via GMID → Alias.</div>`;
+                return;
+            }
+            const masked = maskGMID(gmid);
+            box.innerHTML = `
+    <div class="result-row">
+      <span class="result-label">GMID</span>
+      <span class="result-val masked" id="resolvedGmid" title="${gmid}">${masked}</span>
+      <button class="reveal-btn" onclick="revealGMID('resolvedGmid','${gmid}')">Reveal</button>
+    </div>
+    <div class="result-divider"></div>
+    <div class="result-row">
+      <span class="result-label">Alias</span>
+      <span class="result-val">${alias}</span>
+    </div>
+  `;
+        }
+
+        function revealGMID(id, gmid) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (el.dataset.revealed === '1') {
+                el.textContent = maskGMID(gmid);
+                el.dataset.revealed = '0';
+                el.className = 'result-val masked';
+                el.nextElementSibling.textContent = 'Reveal';
+            } else {
+                el.textContent = gmid;
+                el.dataset.revealed = '1';
+                el.className = 'result-val mono';
+                el.nextElementSibling.textContent = 'Mask';
+                setTimeout(() => {
+                    if (el.dataset.revealed === '1') {
+                        el.textContent = maskGMID(gmid);
+                        el.dataset.revealed = '0';
+                        el.className = 'result-val masked';
+                        if (el.nextElementSibling) el.nextElementSibling.textContent = 'Reveal';
+                    }
+                }, 12000);
+            }
+        }
+
+        function clearField(inputId, resultId) {
+            document.getElementById(inputId).value = '';
+            const box = document.getElementById(resultId);
+            box.innerHTML = '<div class="result-empty">Awaiting input…</div>';
+        }
+
+        function showResult(boxId, type, msg) {
+            const box = document.getElementById(boxId);
+            if (type === 'error') box.innerHTML = `<div class="result-empty" style="color:rgba(248,113,113,.5)">${msg}</div>`;
+            else box.innerHTML = `<div class="result-empty" style="color:rgba(74,222,128,.5)">${msg}</div>`;
+        }
+
+        /* ────────────────────────────────
+           CRYPTO
+        ──────────────────────────────── */
+        async function deriveKey(password, salt) {
+            const enc = new TextEncoder();
+            const km = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+            return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 150000, hash: 'SHA-256' }, km, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        }
+        async function encryptData(data, password) {
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const key = await deriveKey(password, salt);
+            const enc = new TextEncoder();
+            const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(data)));
+            return { salt: [...salt], iv: [...iv], ct: [...new Uint8Array(ct)] };
+        }
+        async function decryptData(blob, password) {
+            const key = await deriveKey(password, new Uint8Array(blob.salt));
+            const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(blob.iv) }, key, new Uint8Array(blob.ct));
+            return JSON.parse(new TextDecoder().decode(pt));
+        }
+
+        /* ────────────────────────────────
+           PRIVATE MAP STATE
+        ──────────────────────────────── */
+        let privateMap = {}; // { gmid: { alias, realName } }
+        let authPassword = null;
+
+        async function login() {
+            const pass = document.getElementById('password').value;
+            if (!pass) { setStatus('loginStatus', 'err', 'Enter a passphrase.'); return; }
+            const stored = localStorage.getItem('meridianPrivateMap');
+            if (stored) {
+                try {
+                    const blob = JSON.parse(stored);
+                    privateMap = await decryptData(blob, pass);
+                } catch (e) {
+                    setStatus('loginStatus', 'err', 'Decryption failed — wrong passphrase?');
+                    return;
+                }
+            } else {
+                privateMap = {};
+            }
+            authPassword = pass;
+            document.getElementById('loginCard').style.display = 'none';
+            document.getElementById('privateCard').style.display = 'block';
+            document.getElementById('tableCard').style.display = 'block';
+            document.getElementById('sessionBadge').style.display = 'flex';
+            document.getElementById('timerRing').style.display = 'block';
+            renderTable();
+            resetTimer();
+        }
+
+        async function saveMap() {
+            if (!authPassword) return;
+            const blob = await encryptData(privateMap, authPassword);
+            localStorage.setItem('meridianPrivateMap', JSON.stringify(blob));
+        }
+
+        async function addPrivateMapping() {
+            const gmid = document.getElementById('privateGmid').value.trim();
+            const realName = document.getElementById('realName').value.trim();
+            if (!gmid || !realName) { setStatus('privateStatus', 'err', 'Both GMID and real name are required.'); return; }
+            const alias = generateAlias(gmid);
+            privateMap[gmid] = { alias, realName };
+            await saveMap();
+            setStatus('privateStatus', 'ok', `Committed — ${alias} registered.`);
+            document.getElementById('privateGmid').value = '';
+            document.getElementById('realName').value = '';
+            renderTable();
+            resetTimer();
+        }
+
+        function getPrivateMapping() {
+            const gmid = document.getElementById('privateGmidQuery').value.trim();
+            const box = document.getElementById('privateQueryResult');
+            if (!gmid) { box.innerHTML = '<div class="result-empty">Enter a GMID to resolve.</div>'; return; }
+            const rec = privateMap[gmid];
+            if (!rec) {
+                box.innerHTML = `<div class="result-empty" style="color:rgba(248,113,113,.4)">No private record for this GMID.</div>`;
+                return;
+            }
+            box.innerHTML = `
+    <div class="result-row">
+      <span class="result-label">Alias</span>
+      <span class="result-val">${rec.alias}</span>
+    </div>
+    <div class="result-divider"></div>
+    <div class="result-row">
+      <span class="result-label">GMID</span>
+      <span class="result-val masked" id="qResolvedGmid" title="${gmid}">${maskGMID(gmid)}</span>
+      <button class="reveal-btn" onclick="revealGMID('qResolvedGmid','${gmid}')">Reveal</button>
+    </div>
+    <div class="result-divider"></div>
+    <div class="result-row">
+      <span class="result-label">Name</span>
+      <span class="result-val" id="qResolvedName" style="filter:blur(5px);transition:filter .3s">${rec.realName}</span>
+      <button class="reveal-btn" onclick="revealName('qResolvedName')">Reveal</button>
+    </div>
+  `;
+            resetTimer();
+        }
+
+        function revealName(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const btn = el.nextElementSibling;
+            if (el.dataset.revealed === '1') {
+                el.style.filter = 'blur(5px)';
+                el.dataset.revealed = '0';
+                if (btn) btn.textContent = 'Reveal';
+            } else {
+                el.style.filter = 'none';
+                el.dataset.revealed = '1';
+                if (btn) btn.textContent = 'Mask';
+                setTimeout(() => {
+                    if (el.dataset.revealed === '1') {
+                        el.style.filter = 'blur(5px)';
+                        el.dataset.revealed = '0';
+                        if (btn) btn.textContent = 'Reveal';
+                    }
+                }, 15000);
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('mappingTbody');
+            tbody.innerHTML = '';
+            const keys = Object.keys(privateMap);
+            if (keys.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px">
+      <span style="font-family:'Cormorant Garamond',serif;font-size:13px;font-weight:300;font-style:italic;color:rgba(168,174,204,.25);">No mappings registered yet.</span>
+    </td></tr>`;
+                return;
+            }
+            keys.forEach((gmid, i) => {
+                const rec = privateMap[gmid];
+                const tr = document.createElement('tr');
+                const nameId = `tname_${i}`;
+                const gmidId = `tgmid_${i}`;
+                tr.innerHTML = `
+      <td>
+        <span class="cell-gmid masked" id="${gmidId}" title="${gmid}">${maskGMID(gmid)}</span>
+        <button class="reveal-btn" onclick="revealGMID('${gmidId}','${gmid}')">Reveal</button>
+      </td>
+      <td><span class="cell-alias">${rec.alias}</span></td>
+      <td>
+        <span class="cell-name" id="${nameId}" style="filter:blur(5px);transition:filter .3s">${rec.realName}</span>
+        <button class="reveal-btn" onclick="revealName('${nameId}')">Reveal</button>
+      </td>
+      <td>
+        <button class="btn danger" style="padding:6px 12px;font-size:7.5px" onclick="deleteMapping('${gmid}')">Remove</button>
+      </td>
+    `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function deleteMapping(gmid) {
+            delete privateMap[gmid];
+            await saveMap();
+            renderTable();
+        }
+
+        function setStatus(id, type, msg) {
+            const el = document.getElementById(id);
+            el.innerHTML = `<span class="status-pill ${type}">${msg}</span>`;
+            setTimeout(() => { if (el) el.innerHTML = ''; }, 5000);
+        }
+
+        /* ────────────────────────────────
+           SECURITY TIMER
+        ──────────────────────────────── */
+        const TIMEOUT_SEC = 60;
+        let timerInterval = null, remaining = TIMEOUT_SEC, spaceCount = 0;
+        const ARC_FULL = 94.25;
+
+        function updateTimerUI() {
+            const pct = remaining / TIMEOUT_SEC;
+            const offset = ARC_FULL * (1 - pct);
+            const arc = document.getElementById('timerArc');
+            if (arc) arc.style.strokeDashoffset = offset;
+            const lbl = document.getElementById('timerLabel');
+            if (lbl) lbl.textContent = remaining + 's';
+        }
+
+        function resetTimer() {
+            remaining = TIMEOUT_SEC;
+            updateTimerUI();
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                remaining--;
+                updateTimerUI();
+                if (remaining <= 0) { clearInterval(timerInterval); lockNow(); }
+            }, 1000);
+        }
+
+        function lockNow() {
+            clearInterval(timerInterval);
+            document.getElementById('lockOverlay').classList.add('active');
+            spaceCount = 0;
+            updatePips();
+        }
+
+        function unlockSession() {
+            const pass = prompt('Session locked.\nEnter passphrase to restore access:');
+            if (!pass) return;
+            if (pass === authPassword) {
+                document.getElementById('lockOverlay').classList.remove('active');
+                resetTimer();
+            } else {
+                alert('Incorrect passphrase. Session remains locked.');
+            }
+        }
+
+        function updatePips() {
+            for (let i = 0; i < 5; i++) {
+                const pip = document.getElementById('pip' + i);
+                if (pip) pip.classList.toggle('lit', i < spaceCount);
+            }
+        }
+
+        window.addEventListener('keydown', e => {
+            const locked = document.getElementById('lockOverlay').classList.contains('active');
+            if (locked) {
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    spaceCount = Math.min(5, spaceCount + 1);
+                    updatePips();
+                    if (spaceCount >= 5) {
+                        spaceCount = 0; updatePips();
+                        unlockSession();
+                    }
+                } else {
+                    spaceCount = 0; updatePips();
+                }
+            } else {
+                if (authPassword) resetTimer();
+            }
+        });
+
+        window.addEventListener('mousemove', () => { if (authPassword) resetTimer(); });
+        window.addEventListener('click', () => { if (authPassword) resetTimer(); });
+    </script>
+</body>
+
+</html>

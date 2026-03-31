@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Meridian Vetting Console</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --panel: #14151a;
+            --panel2: #1b1d24;
+            --text: #e6e6e6;
+            --muted: #a8acb7;
+            --line: #2b2f3a;
+            --accent: #4f6bff;
+            --ok: #34d399;
+            --warn: #fbbf24;
+            --bad: #ef4444;
+            --chip: #232735;
+            --shadow: 0 18px 60px rgba(0, 0, 0, .55);
+            --radius: 18px;
+            font-synthesis-weight: none;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+            background: radial-gradient(1200px 600px at 18% 10%, rgba(79, 107, 255, .22), transparent 60%),
+                radial-gradient(900px 500px at 82% 30%, rgba(52, 211, 153, .12), transparent 55%),
+                radial-gradient(1100px 700px at 50% 92%, rgba(239, 68, 68, .10), transparent 60%),
+                var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        header {
+            max-width: 1200px;
+            margin: 28px auto 10px;
+            padding: 0 22px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 34px;
+            letter-spacing: .2px
+        }
+
+        .brand p {
+            margin: 6px 0 0;
+            color: var(--muted)
+        }
+
+        .pillrow {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap
+        }
+
+        .pill {
+            border: 1px solid var(--line);
+            background: rgba(20, 21, 26, .55);
+            padding: 8px 12px;
+            border-radius: 999px;
+            color: var(--muted);
+            font-size: 12.5px;
+            backdrop-filter: blur(8px);
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 14px auto 40px;
+            padding: 0 22px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.1fr .9fr;
+            gap: 18px;
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(20, 21, 26, .92), rgba(20, 21, 26, .70));
+            border: 1px solid rgba(43, 47, 58, .85);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .card .hd {
+            padding: 16px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(43, 47, 58, .75);
+            background: linear-gradient(180deg, rgba(27, 29, 36, .85), rgba(20, 21, 26, .15));
+        }
+
+        .card .hd h2 {
+            margin: 0;
+            font-size: 16px
+        }
+
+        .card .bd {
+            padding: 16px 18px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 160px;
+            resize: vertical;
+            background: rgba(10, 10, 10, .6);
+            border: 1px solid rgba(43, 47, 58, .95);
+            color: var(--text);
+            padding: 12px 12px;
+            border-radius: 14px;
+            outline: none;
+            line-height: 1.35;
+        }
+
+        textarea:focus {
+            border-color: rgba(79, 107, 255, .65);
+            box-shadow: 0 0 0 4px rgba(79, 107, 255, .15)
+        }
+
+        label {
+            display: block;
+            font-size: 12.5px;
+            color: var(--muted);
+            margin: 0 0 8px
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap
+        }
+
+        .btn {
+            appearance: none;
+            border: 0;
+            cursor: pointer;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(79, 107, 255, 1), rgba(79, 107, 255, .75));
+            color: white;
+            font-weight: 600;
+            letter-spacing: .2px;
+            box-shadow: 0 14px 34px rgba(79, 107, 255, .25);
+            transition: transform .12s ease, filter .12s ease;
+        }
+
+        .btn:hover {
+            filter: brightness(1.05)
+        }
+
+        .btn:active {
+            transform: translateY(1px)
+        }
+
+        .btn.secondary {
+            background: rgba(35, 39, 53, .75);
+            border: 1px solid rgba(43, 47, 58, .95);
+            color: var(--text);
+            box-shadow: none;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(168, 172, 183, .35)
+        }
+
+        .dot.ok {
+            background: rgba(52, 211, 153, .9)
+        }
+
+        .dot.bad {
+            background: rgba(239, 68, 68, .9)
+        }
+
+        .dot.wait {
+            background: rgba(251, 191, 36, .95)
+        }
+
+        .scoreBox {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: rgba(27, 29, 36, .55);
+            border: 1px solid rgba(43, 47, 58, .8);
+        }
+
+        .scoreNum {
+            font-size: 22px;
+            font-weight: 800
+        }
+
+        .bar {
+            height: 10px;
+            flex: 1;
+            background: rgba(43, 47, 58, .8);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .bar>i {
+            display: block;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--bad), var(--warn), var(--ok));
+        }
+
+        .sectionTitle {
+            margin: 18px 0 8px;
+            font-size: 13px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .12em;
+        }
+
+        .twoCol {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .field {
+            padding: 12px 12px;
+            border-radius: 14px;
+            background: rgba(10, 10, 10, .45);
+            border: 1px solid rgba(43, 47, 58, .85);
+        }
+
+        .field .k {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        .field .v {
+            margin-top: 6px;
+            font-weight: 600
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px
+        }
+
+        .chip {
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: rgba(35, 39, 53, .75);
+            border: 1px solid rgba(43, 47, 58, .85);
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        .ratingRow {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px
+        }
+
+        .scale {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            flex-wrap: wrap
+        }
+
+        .scale button {
+            width: 56px;
+            padding: 9px 0;
+            border-radius: 12px;
+            border: 1px solid rgba(43, 47, 58, .9);
+            background: rgba(10, 10, 10, .35);
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        .scale button.active {
+            border-color: rgba(79, 107, 255, .75);
+            color: white;
+            background: rgba(79, 107, 255, .25)
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+        }
+
+        .small {
+            font-size: 12px
+        }
+
+        .footerNote {
+            margin-top: 10px;
+            color: var(--muted);
+            font-size: 12px
+        }
+
+        @media (max-width: 980px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="brand">
+            <h1>Meridian Vetting Console</h1>
+            <p>Paste JD + Resume → AI fills the Vetting Process structure → overall score /100.</p>
+        </div>
+        <div class="pillrow">
+            <div class="pill">GMID-only identities</div>
+            <div class="pill">Local secure AI via /api/vet</div>
+            <div class="pill">Single-page UI</div>
+        </div>
+    </header>
+
+    <main>
+        <div class="grid">
+            <!-- INPUT -->
+            <div class="card">
+                <div class="hd">
+                    <h2>Inputs</h2>
+                    <div class="status" id="status">
+                        <span class="dot" id="dot"></span>
+                        <span id="statusText">Ready</span>
+                    </div>
+                </div>
+                <div class="bd">
+                    <label for="jd">Job Description (paste)</label>
+                    <textarea id="jd" placeholder="Paste the Job Description here..."></textarea>
+
+                    <div style="height:12px"></div>
+
+                    <label for="resume">Resume (paste)</label>
+                    <textarea id="resume" placeholder="Paste the Resume here..."></textarea>
+
+                    <div style="height:14px"></div>
+
+                    <div class="row">
+                        <button class="btn" id="analyzeBtn">Analyze with AI</button>
+                        <button class="btn secondary" id="demoBtn">Load Demo Inputs</button>
+                        <button class="btn secondary" id="clearBtn">Clear</button>
+                    </div>
+
+                    <div class="footerNote">
+                        Endpoint: <span class="mono">POST /api/vet</span> (local FastAPI recommended). Response must be
+                        strict JSON.
+                    </div>
+                </div>
+            </div>
+
+            <!-- OUTPUT SUMMARY -->
+            <div class="card">
+                <div class="hd">
+                    <h2>Vetting Result</h2>
+                    <div class="pillrow">
+                        <div class="pill">Output format locked</div>
+                        <div class="pill">Score + ratings</div>
+                    </div>
+                </div>
+                <div class="bd">
+                    <div class="scoreBox">
+                        <div>
+                            <div class="muted small">Overall Score</div>
+                            <div class="scoreNum" id="overallScore">—</div>
+                        </div>
+                        <div class="bar"><i id="scoreBar"></i></div>
+                        <div class="muted small" id="scoreBand">—</div>
+                    </div>
+
+                    <div class="sectionTitle">Screening Notes</div>
+                    <div class="twoCol">
+                        <div class="field">
+                            <div class="k">Technical Experience Notes</div>
+                            <div class="v" id="techExpNotes">—</div>
+                        </div>
+                        <div class="field">
+                            <div class="k">General Screening Notes</div>
+                            <div class="v" id="generalNotes">—</div>
+                        </div>
+                    </div>
+
+                    <div style="height:10px"></div>
+                    <div class="twoCol">
+                        <div class="field">
+                            <div class="k">Leadership Experience Years</div>
+                            <div class="v" id="leadYears">—</div>
+                        </div>
+                        <div class="field">
+                            <div class="k">Leadership Experience Team Size</div>
+                            <div class="v" id="leadTeamSize">—</div>
+                        </div>
+                    </div>
+
+                    <div class="sectionTitle">Communication</div>
+                    <div class="twoCol">
+                        <div class="field">
+                            <div class="k">Proficiency (1–5)</div>
+                            <div class="v" id="commProf">—</div>
+                        </div>
+                        <div class="field">
+                            <div class="k">Intelligibility (1–3)</div>
+                            <div class="v" id="commIntel">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FULL OUTPUT PANEL -->
+        <div style="height:18px"></div>
+
+        <div class="card">
+            <div class="hd">
+                <h2>Vetting Process</h2>
+                <div class="pillrow">
+                    <div class="pill">Optional fields</div>
+                    <div class="pill">Structured + filled</div>
+                </div>
+            </div>
+
+            <div class="bd">
+                <div class="sectionTitle">Tech Skills</div>
+
+                <div class="twoCol">
+                    <div class="field">
+                        <div class="k">Skills (Primary)</div>
+                        <div class="chips" id="skillsPrimary"></div>
+                    </div>
+                    <div class="field">
+                        <div class="k">Skills (Secondary)</div>
+                        <div class="chips" id="skillsSecondary"></div>
+                    </div>
+                </div>
+
+                <div style="height:10px"></div>
+                <div class="twoCol">
+                    <div class="field">
+                        <div class="k">Professional Level</div>
+                        <div class="v" id="profLevel">—</div>
+                    </div>
+                    <div class="field">
+                        <div class="k">Professional Title</div>
+                        <div class="v" id="profTitle">—</div>
+                    </div>
+                </div>
+
+                <div class="sectionTitle">Vetting Interview</div>
+
+                <div class="field">
+                    <div class="k">Technical Rating</div>
+
+                    <div class="ratingRow">
+                        <div><strong>1. Syntax Familiarity</strong> <span class="muted small" id="r1Label"></span></div>
+                        <div class="scale" data-scale="syntax">
+                            <button data-v="1">1</button><button data-v="2">2</button><button
+                                data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button>
+                        </div>
+                    </div>
+
+                    <div class="ratingRow">
+                        <div><strong>2. Strength of Logical Methodology</strong> <span class="muted small"
+                                id="r2Label"></span></div>
+                        <div class="scale" data-scale="logic">
+                            <button data-v="1">1</button><button data-v="2">2</button><button
+                                data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button>
+                        </div>
+                    </div>
+
+                    <div class="ratingRow">
+                        <div><strong>3. Pair Programming Integration</strong> <span class="muted small"
+                                id="r3Label"></span></div>
+                        <div class="scale" data-scale="pair">
+                            <button data-v="1">1</button><button data-v="2">2</button><button
+                                data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button>
+                        </div>
+                    </div>
+
+                    <div style="height:10px"></div>
+                    <div class="twoCol">
+                        <div class="field">
+                            <div class="k">Aggregate Technical Rating</div>
+                            <div class="v" id="aggTech">0</div>
+                        </div>
+                        <div class="field">
+                            <div class="k">Vetting Result</div>
+                            <div class="v" id="vettingResult">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sectionTitle">Technical Notes</div>
+                <div class="field">
+                    <div class="v" id="techNotes">—</div>
+                </div>
+
+                <div class="sectionTitle">Extra Notes</div>
+                <div class="field">
+                    <div class="v" id="extraNotes">—</div>
+                </div>
+
+                <div class="sectionTitle">Role Differentiator</div>
+                <div class="field">
+                    <div class="v" id="roleDiff">—</div>
+                </div>
+
+                <div class="sectionTitle">Raw JSON (debug)</div>
+                <div class="field">
+                    <div class="v mono small" id="rawJson">—</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const els = (id) => document.getElementById(id);
+        const statusDot = els('dot');
+        const statusText = els('statusText');
+
+        function setStatus(kind, text) {
+            statusDot.className = 'dot ' + (kind || '');
+            statusText.textContent = text;
+        }
+
+        function scoreBand(score) {
+            if (score >= 85) return { t: 'Strong Hire', c: 'ok' };
+            if (score >= 70) return { t: 'Hire / Proceed', c: 'ok' };
+            if (score >= 55) return { t: 'Borderline', c: 'wait' };
+            return { t: 'No-Go', c: 'bad' };
+        }
+
+        function chip(container, items) {
+            const el = els(container);
+            el.innerHTML = '';
+            (items || []).slice(0, 24).forEach(x => {
+                const d = document.createElement('div');
+                d.className = 'chip';
+                d.textContent = x;
+                el.appendChild(d);
+            });
+            if (!items || items.length === 0) {
+                const d = document.createElement('div');
+                d.className = 'muted small';
+                d.textContent = '—';
+                el.appendChild(d);
+            }
+        }
+
+        function setScale(scaleName, value) {
+            const scale = document.querySelector(`.scale[data-scale="${scaleName}"]`);
+            if (!scale) return;
+            [...scale.querySelectorAll('button')].forEach(b => {
+                b.classList.toggle('active', Number(b.dataset.v) === Number(value));
+            });
+        }
+
+        function computeAgg() {
+            const a = Number(els('aggTech').dataset.r1 || 0);
+            const b = Number(els('aggTech').dataset.r2 || 0);
+            const c = Number(els('aggTech').dataset.r3 || 0);
+            const avg = (a + b + c) ? Math.round((a + b + c) / 3) : 0;
+            els('aggTech').textContent = String(avg);
+            return avg;
+        }
+
+        function applyResult(r) {
+            // Summary
+            const score = Number(r.overall_score ?? 0);
+            els('overallScore').textContent = score ? `${score}/100` : '—';
+            els('scoreBar').style.width = Math.max(0, Math.min(100, score)) + '%';
+            const band = scoreBand(score);
+            els('scoreBand').textContent = band.t;
+
+            // Screening Notes
+            els('techExpNotes').textContent = r.screening?.technical_experience_notes || '—';
+            els('generalNotes').textContent = r.screening?.general_screening_notes || '—';
+            els('leadYears').textContent = (r.screening?.leadership_experience_years ?? '—');
+            els('leadTeamSize').textContent = (r.screening?.leadership_experience_team_size ?? '—');
+
+            // Communication
+            els('commProf').textContent = (r.communication?.proficiency_1_to_5 ?? '—');
+            els('commIntel').textContent = (r.communication?.intelligibility_1_to_3 ?? '—');
+
+            // Skills
+            chip('skillsPrimary', r.tech_skills?.primary || []);
+            chip('skillsSecondary', r.tech_skills?.secondary || []);
+
+            // Professional
+            els('profLevel').textContent = r.professional?.level || '—';
+            els('profTitle').textContent = r.professional?.title || '—';
+
+            // Ratings
+            const r1 = Number(r.vetting_interview?.syntax_familiarity_1_to_5 ?? 0);
+            const r2 = Number(r.vetting_interview?.logical_methodology_1_to_5 ?? 0);
+            const r3 = Number(r.vetting_interview?.pair_programming_integration_1_to_5 ?? 0);
+            els('aggTech').dataset.r1 = r1; els('aggTech').dataset.r2 = r2; els('aggTech').dataset.r3 = r3;
+            setScale('syntax', r1); setScale('logic', r2); setScale('pair', r3);
+            computeAgg();
+
+            els('techNotes').textContent = r.notes?.technical_notes || '—';
+            els('extraNotes').textContent = r.notes?.extra_notes || '—';
+            els('roleDiff').textContent = r.role_differentiator || '—';
+            els('vettingResult').textContent = r.vetting_result || band.t;
+
+            els('rawJson').textContent = JSON.stringify(r, null, 2);
+        }
+
+        async function analyze() {
+            const jd = els('jd').value.trim();
+            const resume = els('resume').value.trim();
+            if (!jd || !resume) {
+                setStatus('bad', 'Paste JD + Resume first');
+                return;
+            }
+            setStatus('wait', 'Analyzing…');
+
+            try {
+                const resp = await fetch('/api/vet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job_description: jd, resume_text: resume })
+                });
+
+                if (!resp.ok) {
+                    const t = await resp.text();
+                    throw new Error(`HTTP ${resp.status}: ${t}`);
+                }
+
+                const data = await resp.json();
+                // expects {result: {...}} or directly {...}
+                const result = data.result || data;
+                applyResult(result);
+                setStatus('ok', 'Complete');
+            } catch (e) {
+                console.error(e);
+                setStatus('bad', 'Error (see console)');
+                alert('AI call failed. Open DevTools console for details.\n\n' + e.message);
+            }
+        }
+
+        // allow manual clicking on scale (optional edits)
+        document.querySelectorAll('.scale').forEach(scale => {
+            scale.addEventListener('click', (ev) => {
+                const btn = ev.target.closest('button');
+                if (!btn) return;
+                const v = Number(btn.dataset.v);
+                const name = scale.dataset.scale;
+                setScale(name, v);
+                if (name === 'syntax') els('aggTech').dataset.r1 = v;
+                if (name === 'logic') els('aggTech').dataset.r2 = v;
+                if (name === 'pair') els('aggTech').dataset.r3 = v;
+                computeAgg();
+            });
+        });
+
+        els('analyzeBtn').addEventListener('click', analyze);
+        els('clearBtn').addEventListener('click', () => {
+            els('jd').value = ''; els('resume').value = '';
+            setStatus('', 'Ready');
+        });
+        els('demoBtn').addEventListener('click', () => {
+            els('jd').value = `Role: Senior Dynamics 365 F&O Developer
+Responsibilities: X++ development, extensibility, integrations, CI/CD, performance tuning, documentation.
+Must have: 5+ years modern F&O, strong X++, data entities, forms, batch, strong communication.`;
+            els('resume').value = `Candidate: GMID-EXAMPLE
+Experience: 7 years Dynamics 365 F&O (Finance + Supply Chain), X++ development, extensions, data entities, batch jobs, Azure DevOps pipelines, integrations via Azure services.
+Led team of 6 for 2 years. Strong documentation.`;
+            setStatus('', 'Demo loaded');
+        });
+
+        // render default blanks
+        chip('skillsPrimary', []);
+        chip('skillsSecondary', []);
+    </script>
+</body>
+
+</html>
