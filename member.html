@@ -98,7 +98,8 @@
           <button class="tab" data-tab="sent">Sent</button>
         </div>
 
-        <div class="tiny" id="inboxCount" style="margin-bottom:12px">0 items</div>
+        <div class="tiny" id="inboxCount" style="margin-bottom:8px">0 items</div>
+        <div style="margin-bottom:12px"><a href="/alias" class="btn blue" style="width:100%;justify-content:center">Update Profile</a></div>
         <div class="list" id="inboxList"></div>
       </div>
 
@@ -170,6 +171,8 @@
 
   <script>
     const GMID = "{{GMID}}";
+    const PAGE_PARAMS = new URLSearchParams(window.location.search);
+    const INTRODUCE_GMID = PAGE_PARAMS.get("introduce") || "";
     const $ = id => document.getElementById(id);
     const _adj=['Blue','Red','Green','Swift','Bold','Wise','Fierce','Calm','Silent','Brave','Mystic','Dark','Light','Stormy','Fiery','Icy','Golden','Silver','Shadow','Thunder','Ancient','Eternal','Vivid','Quiet','Loud','Sharp','Dull','Bright','Dim','Hot','Cold','Wet','Dry','Fast','Slow','Heavy','Strong','Weak','Tall','Short','Long','Brief','Deep','Shallow','Wide','Narrow','Old','New','Young','Aged','Pure','Tainted','Clear','Cloudy','Sunny','Rainy','Windy','Still','Wild','Tame','Free','Bound','Happy','Sad','Angry','Peaceful','Chaotic','Orderly','Elegant','Clumsy','Graceful','Awkward','Smart','Clever','Rich','Poor','Full','Empty','Open','Closed','Locked','Unlocked','Safe','Dangerous','Friendly','Hostile','Warm','Cool','Soft','Hard','Smooth','Rough','Shiny','Matte','Vibrant','Faded','Iron','Velvet'];
     const _nou=['Dragon','Phoenix','Tiger','Eagle','Wolf','Fox','Bear','Lion','Hawk','Raven','Shark','Panther','Owl','Falcon','Viper','Cobra','Lynx','Stag','Bull','Horse','Snake','Spider','Scorpion','Whale','Dolphin','Fish','Bird','Cat','Dog','Mouse','Bat','Deer','Elk','Moose','Rabbit','Hare','Squirrel','Beaver','Otter','Seal','Walrus','Penguin','Ostrich','Peacock','Parrot','Crow','Dove','Swan','Goose','Duck','Pig','Cow','Sheep','Goat','Donkey','Mule','Camel','Llama','Elephant','Rhino','Hippo','Giraffe','Zebra','Antelope','Buffalo','Bison','Yak','Monkey','Ape','Gorilla','Chimp','Lemur','Sloth','Koala','Kangaroo','Platypus','Turtle','Tortoise','Lizard','Gecko','Iguana','Alligator','Crocodile','Frog','Toad','Salamander','Newt','Butterfly','Moth','Bee','Wasp','Condor','Manta','Narwhal','Puma','Jaguar','Raptor','Coyote','Badger'];
@@ -285,6 +288,39 @@
       const primaryDomain = (profile.domains||[])[0] || 'strategic delivery';
       return `Confidential Meridian introduction request: seeking a conversation with this member regarding ${primaryRole} capability in ${primaryDomain}.`;
     }
+    function renderDirectConciergeTarget(profile){
+      if(!profile) return;
+      currentItem = null;
+      stopChatPolling();
+      $('detailPane').innerHTML = `
+        <div class="detail-head">
+          <div>
+            <div class="detail-title">${escapeHtml(alias(profile.gmid))}</div>
+            <div class="detail-meta">${escapeHtml(mask(profile.gmid))} · ${escapeHtml((profile.roles||[]).slice(0,2).join(' · ') || 'Meridian Member')}</div>
+          </div>
+          <div class="status pending">Selected Member</div>
+        </div>
+        <div class="detail-block"><div class="detail-label">Concierge Request</div><div class="tiny">You selected this member from Browse Members. Draft your note below and Meridian will deliver it directly into their inbox as a pending introduction.</div></div>
+        <div class="detail-block"><div class="detail-label">Profile Signals</div><div class="brief">${escapeHtml((profile.assets||[])[0] || 'Profile available for confidential introduction.')}</div><div class="chips" style="margin-top:14px">${(profile.domains||[]).slice(0,4).map(x=>`<span class="chip">${escapeHtml(x)}</span>`).join('') || '<span class="chip">General</span>'}</div></div>
+        <div class="detail-block"><div class="detail-label">Message</div><div class="composer-inline" style="display:block"><textarea id="directRequestText">${escapeHtml(buildRequestText(profile))}</textarea><div class="btns"><button class="btn green" type="button" onclick="sendDirectConciergePing('${profile.gmid}')">Send Introduction</button><a class="btn blue" href="/members">Back to Browse</a></div></div></div>`;
+    }
+    async function sendDirectConciergePing(targetGmid){
+      const ta = $('directRequestText');
+      if(!ta) return;
+      const request_text = ta.value.trim();
+      if(!request_text){ showNotice('Introduction draft required', 'Add a short confidential note before dispatch.', 'error'); return; }
+      await api('/api/ping', { method:'POST', body: JSON.stringify({ requester_gmid: GMID, target_gmid: targetGmid, request_text, score: 0 }) });
+      showNotice('Introduction dispatched', 'The selected member now has a pending request in their inbox.');
+      PAGE_PARAMS.delete('introduce');
+      const clean = `${window.location.pathname}${PAGE_PARAMS.toString() ? '?' + PAGE_PARAMS.toString() : ''}`;
+      window.history.replaceState({}, '', clean);
+      await loadLists();
+      activeTab='sent';
+      document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab==='sent'));
+      renderList();
+      const match = outboxItems.find(x => x.target_gmid === targetGmid && x.status === 'pending');
+      if(match){ await selectItem(match.id); }
+    }
     function togglePingComposer(gmid){
       const el = document.getElementById(`composer-${gmid}`);
       if(!el) return;
@@ -357,6 +393,14 @@
     (async function init(){
       await loadProfile();
       await loadLists();
+      if(INTRODUCE_GMID && INTRODUCE_GMID !== GMID){
+        try {
+          const res = await api(`/api/profile/${INTRODUCE_GMID}`);
+          renderDirectConciergeTarget(res.profile);
+        } catch(e) {
+          showNotice('Selected member unavailable', 'That member profile could not be loaded.', 'error');
+        }
+      }
       startListPolling();
     })().catch(err => { $('inboxList').innerHTML = `<div class="empty">Failed to load inbox.<br><br>${escapeHtml(err.message)}</div>`; $('detailPane').innerHTML = `<div class="empty">Failed to load member console.</div>`; });
   </script>

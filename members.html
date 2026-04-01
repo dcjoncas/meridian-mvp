@@ -80,7 +80,7 @@ function render(){
       <div class="headline">${esc(x.headline || 'Meridian Member')}</div>
       <div class="meta">${Number(x.experience_years||0)} years experience<br>${(x.networks||[]).slice(0,2).map(esc).join(' · ') || 'Private network access'}</div>
       <div class="tags">${(x.domains||[]).slice(0,4).map(d => `<span class="tag">${esc(d)}</span>`).join('') || '<span class="tag">General</span>'}</div>
-      <div class="row"><div class="score">${Number(x.strength_score||0)}</div><a class="btn" href="/me">Request via Concierge</a></div>
+      <div class="row"><div class="score">${Number(x.strength_score||0)}</div><a class="btn" href="/me?introduce=${encodeURIComponent(x.gmid)}">Request via Concierge</a></div>
     </div>`).join('');
 }
 (async function init(){

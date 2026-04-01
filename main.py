@@ -294,6 +294,11 @@ def init_schema():
                     values = rnd.sample(VALUE_KEYWORDS, k=rnd.randint(2, 4))
                     profile = {"domains":domains,"roles":roles,"experience_years":rnd.randint(8,28),"networks":networks,"assets":assets,"values":values,"attributes":{"engagement_type":"advisory retainer","availability":"near-term"}}
                     cur.execute("""INSERT INTO member_profiles (member_id, domains_json, roles_json, experience_years, networks_json, assets_json, values_json, attributes_json, strength_score) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",(member_id, Json(profile["domains"]), Json(profile["roles"]), profile["experience_years"], Json(profile["networks"]), Json(profile["assets"]), Json(profile["values"]), Json(profile["attributes"]), profile_strength_score(profile)))
+            cur.execute("""UPDATE members
+                           SET status='active'
+                           WHERE lower(coalesce(email,''))='darrin.joncas@gmail.com'
+                              OR lower(display_name)='darrin joncas'
+                              OR id IN (SELECT member_id FROM member_auth WHERE lower(username)='darrin.joncas')""")
             cur.execute("""SELECT m.id, m.display_name, m.email, m.is_system, a.member_id, a.username, m.gmid
                            FROM members m
                            LEFT JOIN member_auth a ON a.member_id = m.id
@@ -372,7 +377,9 @@ def my_home(request: Request):
     gmid = request.session.get("member_gmid")
     if not gmid:
         return RedirectResponse(url="/", status_code=302)
-    return RedirectResponse(url=f"/member/{gmid}", status_code=302)
+    query = str(request.url.query or "").strip()
+    suffix = f"?{query}" if query else ""
+    return RedirectResponse(url=f"/member/{gmid}{suffix}", status_code=302)
 
 @app.get("/rankings", response_class=HTMLResponse)
 def rankings_page(): return HTMLResponse(open(os.path.join(BASE_DIR, "rankings.html"), "r", encoding="utf-8").read())
