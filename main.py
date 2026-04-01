@@ -546,14 +546,19 @@ async def api_profile_create(request: Request):
 async def api_match(request: Request):
     data = await request.json(); q = (data.get("query") or "").strip(); requester = (data.get("requester_gmid") or "").strip()
     if not q: raise HTTPException(status_code=400, detail="query is required")
-    profiles = [p for p in fetch_profiles(5000) if p["gmid"] != requester and p.get("status") in ("active", "pending_vetting")]
+    profiles = [
+        p for p in fetch_profiles(5000)
+        if p["gmid"] != requester
+        and p.get("status") in ("active", "pending_vetting")
+        and p.get("status") != "ghosted"
+    ]
     scored = [(score_profile(q,p),p) for p in profiles]
     scored = [(s,p) for s,p in scored if s > 0]
     scored.sort(key=lambda x:(x[0], profile_strength_score(x[1])), reverse=True)
     out=[]
     for s,p in scored[:10]:
         out.append({"score": int(s), "profile":{"gmid":p["gmid"],"display_name":p["display_name"],"domains":p["domains"],"roles":p["roles"],"experience_years":p["experience_years"],"assets_preview":(p["assets"] or [])[:6],"networks":p["networks"],"is_system":p["is_system"],"strength_score": profile_strength_score(p)}})
-    return JSONResponse(content=jsonable_encoder({"ok": True, "query": q, "count": len(out), "results": out}))
+    return JSONResponse(content=jsonable_encoder({"ok": True, "query": q, "count": len(out), "results": out, "pool": "all_active_members_excluding_ghosts"}))
 
 @app.post("/api/ping")
 async def api_ping(request: Request):
@@ -811,7 +816,7 @@ def api_debug():
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT COUNT(*) AS c FROM members")
             members = cur.fetchone()["c"]
-            cur.execute("SELECT COUNT(*) AS c FROM members WHERE is_system = FALSE")
+            cur.execute("SELECT COUNT(*) AS c FROM members WHERE status IN ('active','pending_vetting') AND status <> 'ghosted'")
             community_members = cur.fetchone()["c"]
             cur.execute("SELECT COUNT(*) AS c FROM members WHERE status='active'")
             active_members = cur.fetchone()["c"]
