@@ -1,0 +1,1 @@
+-- Schema is initialized automatically on startup.

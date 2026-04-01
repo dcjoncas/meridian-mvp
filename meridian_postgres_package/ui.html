@@ -1,0 +1,2266 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Meridian — Private Exchange</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --obsidian: #060608;
+      --deep: #0A0A0F;
+      --panel: #0E0E15;
+      --surface: #13131E;
+      --rim: rgba(255, 255, 255, .06);
+      --rim-hover: rgba(255, 255, 255, .12);
+      --gold: #C9A84C;
+      --gold-light: #E4C778;
+      --gold-dim: rgba(201, 168, 76, .18);
+      --platinum: #A8AECC;
+      --snow: #E9EAF4;
+      --accent: rgba(201, 168, 76, .55);
+      --glow-gold: 0 0 60px rgba(201, 168, 76, .08);
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Montserrat', sans-serif;
+      background: var(--obsidian);
+      color: var(--snow);
+      overflow-x: hidden;
+      cursor: default;
+    }
+
+    /* ── Grain overlay ── */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      opacity: 1;
+    }
+
+    /* ── Ambient glow ── */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 55% 35% at 15% 12%, rgba(201, 168, 76, .07) 0%, transparent 70%),
+        radial-gradient(ellipse 45% 40% at 90% 5%, rgba(120, 100, 200, .06) 0%, transparent 65%),
+        radial-gradient(ellipse 60% 50% at 55% 95%, rgba(201, 168, 76, .04) 0%, transparent 70%);
+    }
+
+    /* ══════════════════════════════
+     WORDMARK / HEADER
+  ══════════════════════════════ */
+    .masthead {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 48px 22px;
+      border-bottom: 1px solid var(--rim);
+    }
+
+    .wordmark {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+    }
+
+    .wordmark-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: 26px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--snow);
+    }
+
+    .wordmark-rule {
+      width: 1px;
+      height: 22px;
+      background: var(--gold);
+      opacity: .5;
+      align-self: center;
+      transform: rotate(15deg);
+    }
+
+    .wordmark-sub {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: .32em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: .85;
+    }
+
+    .masthead-meta {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .masthead-stat {
+      text-align: right;
+    }
+
+    .masthead-stat-val {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--gold-light);
+      line-height: 1;
+    }
+
+    .masthead-stat-lbl {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--platinum);
+      margin-top: 3px;
+    }
+
+    .masthead-divider {
+      width: 1px;
+      height: 32px;
+      background: linear-gradient(180deg, transparent, var(--gold) 50%, transparent);
+      opacity: .3;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4ADE80;
+      box-shadow: 0 0 8px rgba(74, 222, 128, .6);
+      animation: pulse-dot 2.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: .5;
+        transform: scale(.7);
+      }
+    }
+
+    /* ══════════════════════════════
+     LAYOUT
+  ══════════════════════════════ */
+    .layout {
+      position: relative;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 0;
+      min-height: calc(100vh - 77px);
+    }
+
+    /* ══════════════════════════════
+     LEFT PANEL — CONTROL
+  ══════════════════════════════ */
+    .control-panel {
+      border-right: 1px solid var(--rim);
+      padding: 36px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      background: rgba(10, 10, 16, .55);
+    }
+
+    .panel-section {}
+
+    .section-label {
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: .38em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-label::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--gold), transparent);
+      opacity: .3;
+    }
+
+    /* Custom select */
+    .select-wrap {
+      position: relative;
+    }
+
+    .select-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gold);
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    select,
+    input,
+    textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--rim);
+      color: var(--snow);
+      border-radius: 4px;
+      padding: 12px 16px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: .04em;
+      outline: none;
+      transition: border-color .25s, box-shadow .25s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    select:focus,
+    input:focus,
+    textarea:focus {
+      border-color: rgba(201, 168, 76, .45);
+      box-shadow: 0 0 0 3px rgba(201, 168, 76, .06), inset 0 0 20px rgba(201, 168, 76, .02);
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    select option {
+      background: #13131E;
+    }
+
+    ::placeholder {
+      color: rgba(168, 174, 204, .35);
+      letter-spacing: .04em;
+    }
+
+    /* Buttons */
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--rim);
+      background: transparent;
+      color: var(--platinum);
+      padding: 13px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      transition: border-color .25s, color .25s, background .25s, box-shadow .25s;
+      text-align: center;
+    }
+
+    .btn::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, .03) 100%);
+      opacity: 0;
+      transition: opacity .25s;
+    }
+
+    .btn:hover::before {
+      opacity: 1;
+    }
+
+    .btn:hover {
+      border-color: var(--rim-hover);
+      color: var(--snow);
+    }
+
+    .btn.primary {
+      border-color: rgba(201, 168, 76, .4);
+      background: rgba(201, 168, 76, .06);
+      color: var(--gold-light);
+      box-shadow: var(--glow-gold), inset 0 1px 0 rgba(201, 168, 76, .12);
+    }
+
+    .btn.primary:hover {
+      background: rgba(201, 168, 76, .12);
+      border-color: rgba(201, 168, 76, .65);
+      color: #F0DC9A;
+      box-shadow: 0 0 40px rgba(201, 168, 76, .15), inset 0 1px 0 rgba(201, 168, 76, .2);
+    }
+
+    .btn.primary::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(201, 168, 76, .04) 50%, transparent 100%);
+      animation: shimmer 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes shimmer {
+      0% {
+        transform: translateX(-100%);
+      }
+
+      60%,
+      100% {
+        transform: translateX(100%);
+      }
+    }
+
+    .btn-icon {
+      margin-right: 8px;
+      opacity: .6;
+      font-style: normal;
+    }
+
+    .hint {
+      font-size: 10px;
+      color: rgba(168, 174, 204, .4);
+      line-height: 1.7;
+      letter-spacing: .02em;
+      font-style: italic;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      font-weight: 300;
+    }
+
+    /* ══════════════════════════════
+     RIGHT PANEL — RESULTS
+  ══════════════════════════════ */
+    .results-panel {
+      padding: 36px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .results-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--rim);
+    }
+
+    .results-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 300;
+      letter-spacing: .06em;
+      color: var(--snow);
+    }
+
+    .results-title span {
+      color: var(--gold);
+      font-style: italic;
+    }
+
+    .results-meta {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      color: var(--platinum);
+      opacity: .55;
+    }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      opacity: .4;
+      padding: 80px 0;
+    }
+
+    .empty-sigil {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 72px;
+      font-weight: 300;
+      color: var(--gold);
+      opacity: .3;
+      line-height: 1;
+      letter-spacing: -.02em;
+    }
+
+    .empty-text {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .32em;
+      text-transform: uppercase;
+      color: var(--platinum);
+    }
+
+    /* ── Candidate Cards ── */
+    .results-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .candidate {
+      position: relative;
+      border: 1px solid var(--rim);
+      border-radius: 6px;
+      background: var(--panel);
+      padding: 22px 24px;
+      transition: border-color .3s, box-shadow .3s, transform .3s;
+      overflow: hidden;
+    }
+
+    .candidate::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold) 50%, transparent);
+      opacity: 0;
+      transition: opacity .35s;
+    }
+
+    .candidate:hover {
+      border-color: rgba(201, 168, 76, .22);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, .45), 0 0 0 1px rgba(201, 168, 76, .06);
+      transform: translateY(-2px);
+    }
+
+    .candidate:hover::before {
+      opacity: .6;
+    }
+
+    .candidate-inner {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .candidate-avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 1px solid rgba(201, 168, 76, .22);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--gold);
+      letter-spacing: .04em;
+    }
+
+    .candidate-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .candidate-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 400;
+      letter-spacing: .04em;
+      color: var(--snow);
+      line-height: 1.2;
+    }
+
+    .candidate-sub {
+      font-size: 9.5px;
+      font-weight: 500;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--platinum);
+      opacity: .6;
+      margin-top: 4px;
+    }
+
+    .chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .chip {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: rgba(201, 168, 76, .75);
+      border: 1px solid rgba(201, 168, 76, .2);
+      background: rgba(201, 168, 76, .04);
+      padding: 4px 10px;
+      border-radius: 2px;
+    }
+
+    .chip.domain {
+      color: var(--platinum);
+      border-color: var(--rim);
+      background: rgba(255, 255, 255, .02);
+    }
+
+    .assets {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .asset-line {
+      font-size: 11px;
+      color: rgba(168, 174, 204, .55);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      font-weight: 300;
+      font-style: italic;
+    }
+
+    .asset-line::before {
+      content: "";
+      width: 14px;
+      height: 1px;
+      background: var(--gold);
+      opacity: .35;
+      flex-shrink: 0;
+    }
+
+    /* Score section */
+    .candidate-score-wrap {
+      text-align: right;
+      flex-shrink: 0;
+      min-width: 110px;
+    }
+
+    .score-number {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 38px;
+      font-weight: 300;
+      color: var(--gold-light);
+      line-height: 1;
+      letter-spacing: -.02em;
+    }
+
+    .score-denom {
+      font-size: 12px;
+      color: var(--platinum);
+      opacity: .4;
+    }
+
+    .score-label {
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: .55;
+      margin-top: 2px;
+    }
+
+    .score-bar {
+      width: 100%;
+      height: 2px;
+      border-radius: 1px;
+      background: rgba(255, 255, 255, .05);
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .score-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--gold), var(--gold-light));
+      border-radius: 1px;
+      transition: width 1.2s cubic-bezier(.22, 1, .36, 1);
+    }
+
+    /* System badge */
+    .sys-badge {
+      display: inline-block;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(201, 168, 76, .9);
+      border: 1px solid rgba(201, 168, 76, .3);
+      background: rgba(201, 168, 76, .06);
+      padding: 2px 8px;
+      border-radius: 2px;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+
+    /* Card actions */
+    .candidate-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--rim);
+    }
+
+    .card-btn {
+      position: relative;
+      overflow: hidden;
+      flex: 1;
+      min-width: 120px;
+      border: 1px solid var(--rim);
+      background: transparent;
+      color: var(--platinum);
+      padding: 10px 14px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      transition: all .25s;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .card-btn:hover {
+      border-color: var(--rim-hover);
+      color: var(--snow);
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .card-btn.gold {
+      border-color: rgba(201, 168, 76, .35);
+      color: var(--gold);
+      background: rgba(201, 168, 76, .04);
+    }
+
+    .card-btn.gold:hover {
+      background: rgba(201, 168, 76, .10);
+      border-color: rgba(201, 168, 76, .6);
+      color: var(--gold-light);
+      box-shadow: 0 0 24px rgba(201, 168, 76, .12);
+    }
+
+    /* ══════════════════════════════
+     DIVIDER ORNAMENT
+  ══════════════════════════════ */
+    .ornament {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 4px 0;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 11px;
+      color: rgba(201, 168, 76, .25);
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      user-select: none;
+    }
+
+    .ornament-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(201, 168, 76, .2), transparent);
+    }
+
+    /* ══════════════════════════════
+     FOOTER
+  ══════════════════════════════ */
+    .protocol-bar {
+      position: relative;
+      z-index: 10;
+      border-top: 1px solid var(--rim);
+      padding: 14px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .protocol-text {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(168, 174, 204, .25);
+    }
+
+    .protocol-ver {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      font-weight: 300;
+      color: rgba(201, 168, 76, .3);
+      letter-spacing: .1em;
+    }
+
+    /* ── Masked GMID inline display ── */
+    .c-gmid-val {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .1em;
+      border: 1px solid rgba(201, 168, 76, .18);
+      background: rgba(201, 168, 76, .03);
+      padding: 2px 8px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .c-gmid-val.masked {
+      color: rgba(168, 174, 204, .4);
+      letter-spacing: .18em;
+      cursor: default;
+    }
+
+    .c-gmid-val.mono {
+      color: var(--platinum);
+      letter-spacing: .06em;
+      word-break: break-all;
+      font-size: 9px;
+    }
+
+    .c-reveal-btn {
+      border-color: rgba(201, 168, 76, .2) !important;
+      color: rgba(201, 168, 76, .55) !important;
+      font-size: 8px !important;
+    }
+
+    .c-reveal-btn:hover {
+      color: var(--gold-light) !important;
+      border-color: rgba(201, 168, 76, .5) !important;
+      background: rgba(201, 168, 76, .06) !important;
+    }
+
+    /* ══════════════════════════════
+     LOADING STATE
+  ══════════════════════════════ */
+    .loading-state {
+      display: none;
+      align-items: center;
+      gap: 16px;
+      padding: 40px 0;
+    }
+
+    .loading-state.active {
+      display: flex;
+    }
+
+    .loading-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid rgba(201, 168, 76, .3);
+      border-top-color: var(--gold);
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loading-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--platinum);
+      opacity: .6;
+      letter-spacing: .06em;
+    }
+
+    /* ══════════════════════════════
+     ENTRY ANIMATION
+  ══════════════════════════════ */
+    .candidate {
+      animation: fadeUp .45s ease both;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Stagger */
+    .candidate:nth-child(1) {
+      animation-delay: .05s;
+    }
+
+    .candidate:nth-child(2) {
+      animation-delay: .12s;
+    }
+
+    .candidate:nth-child(3) {
+      animation-delay: .19s;
+    }
+
+    .candidate:nth-child(4) {
+      animation-delay: .26s;
+    }
+
+    .candidate:nth-child(5) {
+      animation-delay: .33s;
+    }
+
+    /* ══════════════════════════════
+     SCROLLBAR
+  ══════════════════════════════ */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--deep);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(201, 168, 76, .2);
+      border-radius: 2px;
+    }
+
+    /* ══════════════════════════════
+     ONBOARDING OVERLAY
+  ══════════════════════════════ */
+    #onboardOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(4, 4, 8, .92);
+      backdrop-filter: blur(32px);
+      transition: opacity .5s ease;
+    }
+
+    #onboardOverlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .ob-box {
+      width: 620px;
+      max-width: 94vw;
+      max-height: 92vh;
+      overflow-y: auto;
+      border: 1px solid rgba(201, 168, 76, .22);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 60px 120px rgba(0, 0, 0, .8), 0 0 0 1px rgba(201, 168, 76, .06);
+      animation: obIn .5s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    @keyframes obIn {
+      from {
+        opacity: 0;
+        transform: translateY(28px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .ob-head {
+      padding: 30px 36px 24px;
+      border-bottom: 1px solid var(--rim);
+      position: relative;
+    }
+
+    .ob-head::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      left: 36px;
+      right: 36px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(201, 168, 76, .5), transparent);
+    }
+
+    .ob-eyebrow {
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: .42em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: .7;
+      margin-bottom: 10px;
+    }
+
+    .ob-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 32px;
+      font-weight: 300;
+      letter-spacing: .04em;
+      color: var(--snow);
+      line-height: 1.15;
+    }
+
+    .ob-title em {
+      color: var(--gold);
+      font-style: italic;
+    }
+
+    .ob-subtitle {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--platinum);
+      opacity: .6;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    .ob-steps {
+      padding: 28px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .ob-step {
+      display: flex;
+      gap: 20px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--rim);
+      position: relative;
+    }
+
+    .ob-step:last-of-type {
+      border-bottom: none;
+    }
+
+    .ob-step-num-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      flex-shrink: 0;
+    }
+
+    .ob-step-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid rgba(201, 168, 76, .35);
+      background: rgba(201, 168, 76, .06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--gold);
+      flex-shrink: 0;
+    }
+
+    .ob-step-line {
+      flex: 1;
+      width: 1px;
+      margin: 6px 0;
+      background: linear-gradient(180deg, rgba(201, 168, 76, .2), transparent);
+      min-height: 20px;
+    }
+
+    .ob-step:last-of-type .ob-step-line {
+      display: none;
+    }
+
+    .ob-step-body {
+      padding-top: 4px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ob-step-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      color: var(--snow);
+      margin-bottom: 6px;
+    }
+
+    .ob-step-desc {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      font-weight: 300;
+      color: var(--platinum);
+      line-height: 1.6;
+      opacity: .75;
+    }
+
+    .ob-step-desc strong {
+      color: var(--gold-light);
+      font-weight: 400;
+      font-style: italic;
+    }
+
+    .ob-step-tag {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid rgba(201, 168, 76, .2);
+      background: rgba(201, 168, 76, .04);
+      padding: 3px 10px;
+      border-radius: 2px;
+    }
+
+    .ob-footer {
+      padding: 20px 36px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .ob-dismiss {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(201, 168, 76, .4);
+      background: rgba(201, 168, 76, .07);
+      color: var(--gold-light);
+      padding: 13px 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      transition: all .25s;
+    }
+
+    .ob-dismiss:hover {
+      background: rgba(201, 168, 76, .14);
+      border-color: rgba(201, 168, 76, .65);
+      box-shadow: 0 0 30px rgba(201, 168, 76, .14);
+    }
+
+    .ob-dismiss::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(201, 168, 76, .06), transparent);
+      animation: shimmer 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .ob-skip {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--platinum);
+      opacity: .35;
+      cursor: pointer;
+      background: none;
+      border: none;
+      transition: opacity .2s;
+    }
+
+    .ob-skip:hover {
+      opacity: .7;
+    }
+
+    /* ══ PHASE STEPPER (persistent) ══ */
+    #phaseStepper {
+      position: relative;
+      z-index: 10;
+      border-bottom: 1px solid var(--rim);
+      padding: 0 48px;
+      background: rgba(6, 6, 8, .7);
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      overflow-x: auto;
+    }
+
+    .phase {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      position: relative;
+      flex-shrink: 0;
+      cursor: default;
+      border-bottom: 2px solid transparent;
+      transition: border-color .3s, background .3s;
+    }
+
+    .phase.active {
+      border-bottom-color: var(--gold);
+      background: rgba(201, 168, 76, .03);
+    }
+
+    .phase.done {
+      border-bottom-color: rgba(74, 222, 128, .35);
+    }
+
+    .phase-num {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid rgba(201, 168, 76, .25);
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      color: rgba(201, 168, 76, .5);
+      flex-shrink: 0;
+      transition: all .3s;
+    }
+
+    .phase.active .phase-num {
+      background: rgba(201, 168, 76, .12);
+      border-color: rgba(201, 168, 76, .6);
+      color: var(--gold);
+    }
+
+    .phase.done .phase-num {
+      background: rgba(74, 222, 128, .1);
+      border-color: rgba(74, 222, 128, .4);
+      color: var(--green);
+      font-size: 10px;
+    }
+
+    .phase-label {
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--platinum);
+      opacity: .35;
+      transition: opacity .3s, color .3s;
+      white-space: nowrap;
+    }
+
+    .phase.active .phase-label {
+      color: var(--gold);
+      opacity: 1;
+    }
+
+    .phase.done .phase-label {
+      color: var(--green);
+      opacity: .7;
+    }
+
+    .phase-sep {
+      align-self: center;
+      color: rgba(201, 168, 76, .15);
+      font-size: 10px;
+      flex-shrink: 0;
+      padding: 0 4px;
+    }
+
+    /* ══ INLINE STEP CALLOUTS ══ */
+    .step-callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(201, 168, 76, .15);
+      border-left: 2px solid var(--gold);
+      border-radius: 0 4px 4px 0;
+      background: rgba(201, 168, 76, .03);
+      animation: fadeUp .4s ease both;
+    }
+
+    .step-callout-icon {
+      font-size: 14px;
+      color: var(--gold);
+      opacity: .6;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-callout-body {}
+
+    .step-callout-title {
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: .8;
+      margin-bottom: 4px;
+    }
+
+    .step-callout-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--platinum);
+      opacity: .65;
+      line-height: 1.5;
+    }
+
+    /* ══════════════════════════════
+     LOGIN SCREEN
+  ══════════════════════════════ */
+    #loginScreen {
+      position: fixed;
+      inset: 0;
+      z-index: 9800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--obsidian);
+    }
+
+    #loginScreen.out {
+      animation: loginOut .7s cubic-bezier(.22, 1, .36, 1) forwards;
+    }
+
+    @keyframes loginOut {
+      0% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      60% {
+        opacity: 1;
+        transform: scale(1.015);
+      }
+
+      100% {
+        opacity: 0;
+        transform: scale(1.04);
+        pointer-events: none;
+      }
+    }
+
+    /* full-bleed ambient for login */
+    #loginScreen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 45% at 20% 15%, rgba(201, 168, 76, .09) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 40% at 85% 80%, rgba(110, 90, 200, .07) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 50% at 70% 10%, rgba(201, 168, 76, .05) 0%, transparent 70%);
+    }
+
+    .login-box {
+      position: relative;
+      z-index: 1;
+      width: 420px;
+      max-width: 92vw;
+      border: 1px solid rgba(201, 168, 76, .2);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 60px 120px rgba(0, 0, 0, .85), 0 0 0 1px rgba(201, 168, 76, .05);
+      overflow: hidden;
+      animation: obIn .6s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .login-top-bar {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold) 50%, transparent);
+      opacity: .55;
+    }
+
+    .login-body {
+      padding: 40px 40px 36px;
+    }
+
+    .login-sigil {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 48px;
+      font-weight: 300;
+      color: var(--gold);
+      opacity: .25;
+      line-height: 1;
+      margin-bottom: 24px;
+      letter-spacing: -.02em;
+    }
+
+    .login-eyebrow {
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: .42em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: .65;
+      margin-bottom: 10px;
+    }
+
+    .login-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 30px;
+      font-weight: 300;
+      letter-spacing: .05em;
+      color: var(--snow);
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .login-title em {
+      color: var(--gold);
+      font-style: italic;
+    }
+
+    .login-sub {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--platinum);
+      opacity: .5;
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    .login-field {
+      margin-bottom: 14px;
+    }
+
+    .login-field label {
+      display: block;
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: .32em;
+      text-transform: uppercase;
+      color: var(--platinum);
+      opacity: .45;
+      margin-bottom: 7px;
+    }
+
+    .login-field input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--rim);
+      color: var(--snow);
+      border-radius: 4px;
+      padding: 12px 14px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: .04em;
+      outline: none;
+      transition: border-color .25s, box-shadow .25s;
+    }
+
+    .login-field input:focus {
+      border-color: rgba(201, 168, 76, .45);
+      box-shadow: 0 0 0 3px rgba(201, 168, 76, .06);
+    }
+
+    .login-field input[type="password"] {
+      letter-spacing: .18em;
+    }
+
+    .login-error {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .1em;
+      color: #F87171;
+      margin-bottom: 14px;
+      min-height: 16px;
+      display: none;
+    }
+
+    .login-error.show {
+      display: block;
+    }
+
+    .login-btn {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      border: 1px solid rgba(201, 168, 76, .4);
+      background: rgba(201, 168, 76, .07);
+      color: var(--gold-light);
+      padding: 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .3em;
+      text-transform: uppercase;
+      transition: all .25s;
+      margin-top: 4px;
+    }
+
+    .login-btn:hover {
+      background: rgba(201, 168, 76, .13);
+      border-color: rgba(201, 168, 76, .65);
+      box-shadow: 0 0 30px rgba(201, 168, 76, .14);
+    }
+
+    .login-btn::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(201, 168, 76, .06), transparent);
+      animation: shimmer 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .login-btn.shake {
+      animation: shake .4s ease;
+    }
+
+    @keyframes shake {
+
+      0%,
+      100% {
+        transform: translateX(0)
+      }
+
+      20% {
+        transform: translateX(-6px)
+      }
+
+      60% {
+        transform: translateX(6px)
+      }
+
+      80% {
+        transform: translateX(-3px)
+      }
+    }
+
+    .login-footer {
+      padding: 14px 40px 18px;
+      border-top: 1px solid var(--rim);
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: rgba(168, 174, 204, .2);
+      text-align: center;
+    }
+
+    /* ══ PRINCIPAL BADGE (replaces dropdown) ══ */
+    .principal-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid rgba(201, 168, 76, .2);
+      border-radius: 4px;
+      padding: 10px 14px;
+      background: rgba(201, 168, 76, .03);
+    }
+
+    .principal-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(201, 168, 76, .3);
+      background: rgba(201, 168, 76, .08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--gold);
+      flex-shrink: 0;
+    }
+
+    .principal-info {}
+
+    .principal-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 17px;
+      font-weight: 400;
+      color: var(--snow);
+      line-height: 1.1;
+    }
+
+    .principal-gmid {
+      font-size: 8.5px;
+      font-weight: 500;
+      letter-spacing: .14em;
+      color: var(--platinum);
+      opacity: .4;
+      margin-top: 2px;
+    }
+
+    .principal-online {
+      margin-left: auto;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(74, 222, 128, .6);
+      animation: pulse-dot 2.4s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    /* masthead session identity */
+    .session-identity {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--rim);
+      border-radius: 4px;
+      padding: 7px 14px;
+      background: var(--surface);
+    }
+
+    .session-av {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1px solid rgba(201, 168, 76, .25);
+      background: var(--deep);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 11px;
+      color: var(--gold);
+      flex-shrink: 0;
+    }
+
+    .session-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--snow);
+      line-height: 1;
+    }
+
+    .session-role {
+      font-size: 8px;
+      font-weight: 500;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: .55;
+    }
+
+    /* ══════════════════════════════
+     RESPONSIVE
+  ══════════════════════════════ */
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .control-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--rim);
+      }
+
+      .masthead {
+        padding: 20px 24px;
+      }
+
+      .masthead-stat {
+        display: none;
+      }
+
+      .results-panel {
+        padding: 28px 24px;
+      }
+
+      #phaseStepper {
+        padding: 0 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ══ LOGIN SCREEN ══ -->
+  <div id="loginScreen">
+    <div class="login-box">
+      <div class="login-top-bar"></div>
+      <div class="login-body">
+        <div class="login-sigil">M</div>
+        <div class="login-eyebrow">Private Exchange</div>
+        <div class="login-title">Welcome back to <em>Meridian</em></div>
+        <div class="login-sub">Authenticate to access the concierge exchange. Your session is encrypted and
+          non-attributable.</div>
+
+        <div class="login-field">
+          <label>Username</label>
+          <input type="text" id="loginUser" placeholder="Enter username" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="login-field">
+          <label>Passphrase</label>
+          <input type="password" id="loginPass" placeholder="Enter passphrase">
+        </div>
+        <div class="login-error" id="loginError">Credentials not recognised. Access denied.</div>
+        <button class="login-btn" id="loginBtn">Authenticate →</button>
+      </div>
+      <div class="login-footer">Meridian Group · Restricted Access · v13</div>
+    </div>
+  </div>
+
+  <!-- ══ ONBOARDING OVERLAY ══ -->
+  <div id="onboardOverlay">
+    <div class="ob-box">
+      <div class="ob-head">
+        <div class="ob-eyebrow">Getting Started</div>
+        <div class="ob-title">Welcome to <em>Meridian</em></div>
+        <div class="ob-subtitle">A private concierge exchange for discreet executive introductions. Follow the five
+          phases below — identities remain masked throughout.</div>
+      </div>
+
+      <div class="ob-steps">
+        <div class="ob-step">
+          <div class="ob-step-num-wrap">
+            <div class="ob-step-num">1</div>
+            <div class="ob-step-line"></div>
+          </div>
+          <div class="ob-step-body">
+            <div class="ob-step-title">You're Authenticated as Mike S</div>
+            <div class="ob-step-desc">Your principal is locked in. Other members see only your <strong>alias and masked
+                GMID</strong> — your real name is never displayed on the network.</div>
+            <span class="ob-step-tag">Principal · Active Session · Encrypted</span>
+          </div>
+        </div>
+
+        <div class="ob-step">
+          <div class="ob-step-num-wrap">
+            <div class="ob-step-num">2</div>
+            <div class="ob-step-line"></div>
+          </div>
+          <div class="ob-step-body">
+            <div class="ob-step-title">Submit a Confidential Brief</div>
+            <div class="ob-step-desc">Describe the mandate in the <strong>Confidential Brief</strong> field — operating
+              scope, sector, experience required. Be specific. The concierge engine scores candidates against your
+              language.</div>
+            <span class="ob-step-tag">Left Panel → Confidential Brief → Consult Concierge</span>
+          </div>
+        </div>
+
+        <div class="ob-step">
+          <div class="ob-step-num-wrap">
+            <div class="ob-step-num">3</div>
+            <div class="ob-step-line"></div>
+          </div>
+          <div class="ob-step-body">
+            <div class="ob-step-title">Review &amp; Score Candidates</div>
+            <div class="ob-step-desc">The right panel surfaces up to <strong>10 ranked candidates</strong>, each shown
+              by alias and masked GMID only. Use <strong>◎ Reveal Identity</strong> on a card to temporarily unmask — it
+              re-masks automatically after 15 seconds.</div>
+            <span class="ob-step-tag">Right Panel → Candidate Cards</span>
+          </div>
+        </div>
+
+        <div class="ob-step">
+          <div class="ob-step-num-wrap">
+            <div class="ob-step-num">4</div>
+            <div class="ob-step-line"></div>
+          </div>
+          <div class="ob-step-body">
+            <div class="ob-step-title">Send an Introduction</div>
+            <div class="ob-step-desc">Click <strong>◈ Send Introduction</strong> on the candidate you wish to reach. A
+              private ping is dispatched to their inbox — only your brief and match score are transmitted, never your
+              identity.</div>
+            <span class="ob-step-tag">Candidate Card → Send Introduction</span>
+          </div>
+        </div>
+
+        <div class="ob-step">
+          <div class="ob-step-num-wrap">
+            <div class="ob-step-num">5</div>
+            <div class="ob-step-line"></div>
+          </div>
+          <div class="ob-step-body">
+            <div class="ob-step-title">Recipient Reviews &amp; Opens Channel</div>
+            <div class="ob-step-desc">Click <strong>Open My Inbox</strong> to open the recipient view in a new tab. They
+              review the introduction via the <strong>Connection Request</strong> modal, then accept or decline. On
+              acceptance a <strong>secure channel</strong> opens for both parties.</div>
+            <span class="ob-step-tag">Open My Inbox → Review → Accept → Chat</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ob-footer">
+        <button class="ob-dismiss" onclick="dismissOnboard()">Begin — Enter the Exchange</button>
+        <button class="ob-skip" onclick="dismissOnboard()">Skip intro</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MASTHEAD ══ -->
+  <header class="masthead">
+    <div class="wordmark">
+      <div class="wordmark-name">Meridian</div>
+      <div class="wordmark-rule"></div>
+      <div class="wordmark-sub">Private Exchange</div>
+    </div>
+    <div class="masthead-meta">
+      <div class="masthead-stat">
+        <div class="masthead-stat-val" id="stat-profiles">—</div>
+        <div class="masthead-stat-lbl">Members</div>
+      </div>
+      <div class="masthead-divider"></div>
+      <div class="masthead-stat">
+        <div class="masthead-stat-val" id="stat-pings">—</div>
+        <div class="masthead-stat-lbl">Introductions</div>
+      </div>
+      <div class="masthead-divider"></div>
+      <div class="session-identity">
+        <div class="session-av" id="sessionAv">MS</div>
+        <div>
+          <div class="session-name" id="sessionName">Mike S</div>
+          <div class="session-role">Principal · Active Session</div>
+        </div>
+      </div>
+      <div class="masthead-divider"></div>
+      <button onclick="logout()"
+        style="font-size:8px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(168,174,204,.3);background:none;border:none;cursor:pointer;transition:color .2s;padding:4px"
+        onmouseover="this.style.color='rgba(248,113,113,.7)'" onmouseout="this.style.color='rgba(168,174,204,.3)'">Sign
+        Out</button>
+    </div>
+  </header>
+
+  <!-- ══ PHASE STEPPER ══ -->
+  <nav id="phaseStepper">
+    <div class="phase active" id="phase1" title="Select your acting principal">
+      <div class="phase-num">1</div>
+      <div class="phase-label">Select Principal</div>
+    </div>
+    <div class="phase-sep">›</div>
+    <div class="phase" id="phase2" title="Write and submit a confidential brief">
+      <div class="phase-num">2</div>
+      <div class="phase-label">Submit Brief</div>
+    </div>
+    <div class="phase-sep">›</div>
+    <div class="phase" id="phase3" title="Review scored candidates">
+      <div class="phase-num">3</div>
+      <div class="phase-label">Review Candidates</div>
+    </div>
+    <div class="phase-sep">›</div>
+    <div class="phase" id="phase4" title="Send an introduction ping">
+      <div class="phase-num">4</div>
+      <div class="phase-label">Send Introduction</div>
+    </div>
+    <div class="phase-sep">›</div>
+    <div class="phase" id="phase5" title="Recipient accepts and channel opens">
+      <div class="phase-num">5</div>
+      <div class="phase-label">Open Channel</div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;padding:0 0 0 20px;flex-shrink:0">
+      <button onclick="showOnboard()"
+        style="font-size:8px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(201,168,76,.35);background:none;border:none;cursor:pointer;transition:color .2s;padding:0"
+        onmouseover="this.style.color='rgba(201,168,76,.75)'" onmouseout="this.style.color='rgba(201,168,76,.35)'">?
+        Guide</button>
+    </div>
+  </nav>
+
+  <!-- ══ MAIN LAYOUT ══ -->
+  <div class="layout">
+
+    <!-- LEFT: CONTROL PANEL -->
+    <aside class="control-panel">
+
+      <div class="panel-section">
+        <div class="step-callout" id="callout1" style="display:none">
+          <div class="step-callout-icon">①</div>
+          <div class="step-callout-body">
+            <div class="step-callout-title">Step 1 — Your Principal</div>
+            <div class="step-callout-text">You are authenticated as <em>Mike S</em>. Your identity is masked to other
+              members — they see only your alias and GMID.</div>
+          </div>
+        </div>
+        <div class="section-label">Acting Principal</div>
+        <div class="principal-badge">
+          <div class="principal-avatar">MS</div>
+          <div class="principal-info">
+            <div class="principal-name">Mike S</div>
+            <div class="principal-gmid" id="mikGmid">Resolving…</div>
+          </div>
+          <div class="principal-online" title="Session active"></div>
+        </div>
+        <!-- hidden input keeps the GMID value for API calls -->
+        <input type="hidden" id="acting">
+      </div>
+
+      <div class="panel-section">
+        <div class="step-callout" id="callout2">
+          <div class="step-callout-icon">②</div>
+          <div class="step-callout-body">
+            <div class="step-callout-title">Step 2 — Write Your Brief</div>
+            <div class="step-callout-text">Describe the mandate in plain language — sector, role, experience level. Then
+              click <em>Consult Concierge</em>.</div>
+          </div>
+        </div>
+        <div class="section-label">Confidential Brief</div>
+        <textarea id="q" placeholder="Describe the mandate — background, operating scope, requirements…"></textarea>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn primary" id="go">
+          <i class="btn-icon">◈</i> Consult Concierge
+        </button>
+        <button class="btn" id="openMe">
+          <i class="btn-icon">⊞</i> Open My Inbox
+        </button>
+      </div>
+
+      <div class="ornament">
+        <span class="ornament-line"></span>
+        <span>Protocol</span>
+        <span class="ornament-line"></span>
+      </div>
+
+      <p class="hint">Match → Ping → Recipient accepts or declines.<br>Chat opens on acceptance. All exchanges encrypted
+        end-to-end.</p>
+
+      <div style="margin-top:auto">
+        <a href="/api/debug/db" target="_blank"
+          style="font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:rgba(168,174,204,.2);text-decoration:none;">Debug
+          Console ↗</a>
+      </div>
+
+    </aside>
+
+    <!-- RIGHT: RESULTS -->
+    <main class="results-panel">
+
+      <div class="results-header">
+        <div class="results-title">Recommended <span>Candidates</span></div>
+        <div class="results-meta" id="meta">Awaiting brief…</div>
+      </div>
+
+      <div class="step-callout" id="callout3" style="margin-bottom:18px">
+        <div class="step-callout-icon">③</div>
+        <div class="step-callout-body">
+          <div class="step-callout-title">Step 3 — Review Candidates</div>
+          <div class="step-callout-text">Candidates are ranked by match score. Names are masked by default — use <em>◎
+              Reveal Identity</em> on any card to temporarily unmask for 15 seconds.</div>
+        </div>
+      </div>
+      <div class="step-callout" id="callout4" style="margin-bottom:18px;display:none">
+        <div class="step-callout-icon">④</div>
+        <div class="step-callout-body">
+          <div class="step-callout-title">Step 4 — Send an Introduction</div>
+          <div class="step-callout-text">Click <em>◈ Send Introduction</em> on your chosen candidate. Then click
+            <em>Open My Inbox</em> — or open a new tab as the recipient — to simulate acceptance.</div>
+        </div>
+      </div>
+
+      <div class="loading-state" id="loading">
+        <div class="loading-icon"></div>
+        <div class="loading-text">Consulting the network…</div>
+      </div>
+
+      <div class="results-grid" id="results"></div>
+
+      <div class="empty-state" id="empty">
+        <div class="empty-sigil">M</div>
+        <div class="empty-text">Submit a brief to surface candidates</div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ══ FOOTER ══ -->
+  <div class="protocol-bar">
+    <div class="protocol-text">Meridian Concierge Exchange — Restricted Access</div>
+    <div class="protocol-ver">v13</div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let profiles = [], lastQuery = "";
+
+    /* ══════════════════════════════
+       CREDENTIALS & SESSION
+    ══════════════════════════════ */
+    const VALID_USER = 'mike';
+    const VALID_PASS = 'red123';
+    const MIK_DISPLAY = 'Mike S';
+    // Mike S's GMID is deterministic — same seed as main.py uses
+    let MIK_GMID = null; // resolved from API on login
+
+    function logout() {
+      try { sessionStorage.removeItem('meridian_session'); } catch (e) { }
+      const ls = $('loginScreen');
+      ls.style.display = 'flex'; ls.classList.remove('out');
+      $('loginUser').value = '';
+      $('loginPass').value = '';
+      $('loginError').classList.remove('show');
+    }
+
+    function doLogin() {
+      const u = $('loginUser').value.trim().toLowerCase();
+      const p = $('loginPass').value;
+      if (u === VALID_USER && p === VALID_PASS) {
+        const ls = $('loginScreen');
+        ls.classList.add('out');
+        setTimeout(() => { ls.style.display = 'none'; }, 720);
+        try { sessionStorage.setItem('meridian_session', '1'); } catch (e) { }
+        load();
+        // Show onboarding only first time
+        try {
+          if (!localStorage.getItem('meridian_onboard_done')) showOnboard();
+        } catch (e) { }
+      } else {
+        const err = $('loginError'); err.classList.add('show');
+        const btn = $('loginBtn'); btn.classList.remove('shake');
+        void btn.offsetWidth; btn.classList.add('shake');
+        setTimeout(() => btn.classList.remove('shake'), 450);
+      }
+    }
+
+    // Enter key on password field
+    document.addEventListener('DOMContentLoaded', () => {
+      $('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+      $('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginPass').focus(); });
+      $('loginBtn').addEventListener('click', doLogin);
+      // Check existing session
+      try {
+        if (sessionStorage.getItem('meridian_session') === '1') {
+          $('loginScreen').style.display = 'none';
+          load();
+        }
+      } catch (e) { }
+    });
+
+    /* ══════════════════════════════
+       ONBOARDING
+    ══════════════════════════════ */
+    function dismissOnboard() {
+      const ov = $('onboardOverlay');
+      ov.classList.add('hidden');
+      setTimeout(() => ov.style.display = 'none', 520);
+      try { localStorage.setItem('meridian_onboard_done', '1'); } catch (e) { }
+    }
+    function showOnboard() {
+      const ov = $('onboardOverlay');
+      ov.style.display = 'flex';
+      setTimeout(() => ov.classList.remove('hidden'), 10);
+    }
+
+    /* ══════════════════════════════
+       PHASE TRACKER
+    ══════════════════════════════ */
+    const PHASES = ['phase1', 'phase2', 'phase3', 'phase4', 'phase5'];
+    let currentPhase = 1;
+
+    function setPhase(n) {
+      currentPhase = n;
+      PHASES.forEach((id, i) => {
+        const el = $(id); if (!el) return;
+        el.classList.remove('active', 'done');
+        if (i + 1 < n) { el.classList.add('done'); el.querySelector('.phase-num').textContent = '✓'; }
+        if (i + 1 === n) el.classList.add('active');
+      });
+      $('callout1') && ($('callout1').style.display = 'none'); // principal is fixed, hide step 1 callout
+      $('callout2') && ($('callout2').style.display = n <= 2 ? 'flex' : 'none');
+      $('callout3') && ($('callout3').style.display = n === 3 ? 'flex' : 'none');
+      $('callout4') && ($('callout4').style.display = n === 4 ? 'flex' : 'none');
+    }
+
+    /* ══════════════════════════════
+       ALIAS ENGINE
+    ══════════════════════════════ */
+    const _adj = ['Blue', 'Red', 'Green', 'Swift', 'Bold', 'Wise', 'Fierce', 'Calm', 'Silent', 'Brave', 'Mystic', 'Dark', 'Light', 'Stormy', 'Fiery', 'Icy', 'Golden', 'Silver', 'Shadow', 'Thunder', 'Ancient', 'Eternal', 'Vivid', 'Quiet', 'Loud', 'Sharp', 'Dull', 'Bright', 'Dim', 'Hot', 'Cold', 'Wet', 'Dry', 'Fast', 'Slow', 'Heavy', 'Strong', 'Weak', 'Tall', 'Short', 'Long', 'Brief', 'Deep', 'Shallow', 'Wide', 'Narrow', 'Old', 'New', 'Young', 'Aged', 'Pure', 'Tainted', 'Clear', 'Cloudy', 'Sunny', 'Rainy', 'Windy', 'Still', 'Wild', 'Tame', 'Free', 'Bound', 'Happy', 'Sad', 'Angry', 'Peaceful', 'Chaotic', 'Orderly', 'Elegant', 'Clumsy', 'Graceful', 'Awkward', 'Smart', 'Clever', 'Rich', 'Poor', 'Full', 'Empty', 'Open', 'Closed', 'Locked', 'Unlocked', 'Safe', 'Dangerous', 'Friendly', 'Hostile', 'Warm', 'Cool', 'Soft', 'Hard', 'Smooth', 'Rough', 'Shiny', 'Matte', 'Vibrant', 'Faded', 'Iron', 'Velvet'];
+    const _nou = ['Dragon', 'Phoenix', 'Tiger', 'Eagle', 'Wolf', 'Fox', 'Bear', 'Lion', 'Hawk', 'Raven', 'Shark', 'Panther', 'Owl', 'Falcon', 'Viper', 'Cobra', 'Lynx', 'Stag', 'Bull', 'Horse', 'Snake', 'Spider', 'Scorpion', 'Whale', 'Dolphin', 'Fish', 'Bird', 'Cat', 'Dog', 'Mouse', 'Bat', 'Deer', 'Elk', 'Moose', 'Rabbit', 'Hare', 'Squirrel', 'Beaver', 'Otter', 'Seal', 'Walrus', 'Penguin', 'Ostrich', 'Peacock', 'Parrot', 'Crow', 'Dove', 'Swan', 'Goose', 'Duck', 'Pig', 'Cow', 'Sheep', 'Goat', 'Donkey', 'Mule', 'Camel', 'Llama', 'Elephant', 'Rhino', 'Hippo', 'Giraffe', 'Zebra', 'Antelope', 'Buffalo', 'Bison', 'Yak', 'Monkey', 'Ape', 'Gorilla', 'Chimp', 'Lemur', 'Sloth', 'Koala', 'Kangaroo', 'Platypus', 'Turtle', 'Tortoise', 'Lizard', 'Gecko', 'Iguana', 'Alligator', 'Crocodile', 'Frog', 'Toad', 'Salamander', 'Newt', 'Butterfly', 'Moth', 'Bee', 'Wasp', 'Condor', 'Manta', 'Narwhal', 'Puma', 'Jaguar', 'Raptor', 'Coyote', 'Badger'];
+
+    function gmidToAlias(gmid) {
+      if (!gmid) return 'Unknown';
+      const c = gmid.replace(/[^a-fA-F0-9]/g, '').toLowerCase().padEnd(16, '0');
+      return _adj[parseInt(c.slice(0, 8), 16) % _adj.length] + _nou[parseInt(c.slice(8, 16), 16) % _nou.length];
+    }
+    function maskGMID(gmid) {
+      if (!gmid) return '—';
+      const s = gmid.replace(/[^a-fA-F0-9]/g, '');
+      if (s.length < 8) return s.substring(0, 4) + '…';
+      return s.substring(0, 4) + '·'.repeat(Math.max(4, s.length - 8)) + s.substring(s.length - 4);
+    }
+    function aliasInitials(alias) {
+      const parts = alias.match(/[A-Z][a-z]*/g) || [alias];
+      return parts.slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+    }
+
+    /* ══════════════════════════════
+       REVEAL TOGGLE
+    ══════════════════════════════ */
+    function toggleReveal(cardId) {
+      const card = document.getElementById(cardId); if (!card) return;
+      const gmidSpan = card.querySelector('.c-gmid-val');
+      const nameSpan = card.querySelector('.c-name-val');
+      const revealBtn = card.querySelector('.c-reveal-btn');
+      const gmid = card.dataset.gmid;
+      const realName = card.dataset.realname;
+      if (card.dataset.revealed === '1') {
+        gmidSpan.textContent = maskGMID(gmid);
+        gmidSpan.className = 'c-gmid-val masked';
+        nameSpan.textContent = gmidToAlias(gmid);
+        nameSpan.style.filter = '';
+        revealBtn.textContent = '◎ Reveal Identity';
+        card.dataset.revealed = '0';
+        clearTimeout(card._revealTimer);
+      } else {
+        gmidSpan.textContent = gmid;
+        gmidSpan.className = 'c-gmid-val mono';
+        nameSpan.textContent = realName;
+        nameSpan.style.filter = 'none';
+        revealBtn.textContent = '◉ Mask Identity';
+        card.dataset.revealed = '1';
+        clearTimeout(card._revealTimer);
+        card._revealTimer = setTimeout(() => { if (card.dataset.revealed === '1') toggleReveal(cardId); }, 15000);
+      }
+    }
+
+    /* ══════════════════════════════
+       API
+    ══════════════════════════════ */
+    async function api(url, opts = {}) {
+      const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...opts });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    /* ══════════════════════════════
+       LOAD — resolve Mike S GMID
+    ══════════════════════════════ */
+    async function load() {
+      try {
+        const db = await api("/api/debug/db");
+        $("stat-profiles").textContent = db.profiles ?? "—";
+        $("stat-pings").textContent = db.pings ?? "—";
+
+        const p = await api("/api/profiles?limit=250");
+        profiles = p.profiles || [];
+
+        // Find Mike S — match by display_name containing "Mike S"
+        const mik = profiles.find(x => !x.is_system && x.display_name === MIK_DISPLAY);
+        if (mik) {
+          MIK_GMID = mik.gmid;
+          $("acting").value = MIK_GMID;
+          $("mikGmid").textContent = maskGMID(MIK_GMID);
+          setPhase(2);
+        } else {
+          // Mike S doesn't exist yet — auto-create
+          const res = await api("/api/profile/create", {
+            method: "POST",
+            body: JSON.stringify({
+              display_name: MIK_DISPLAY,
+              domains: ["Private Equity", "Financial Services", "Executive Search"],
+              roles: ["Principal", "Managing Partner"],
+              experience_years: 18,
+              networks: ["Global LP network", "C-suite operator channel"],
+              political_social: ["Discretion-first collaboration"],
+              assets: [
+                "20+ years executing discreet executive mandates",
+                "Deep LP and sovereign fund relationships",
+                "Multi-sector board and operating network",
+                "Cross-border deal origination track record",
+                "Non-attributable introduction protocol",
+                "Known for zero-ego, outcome-first execution"
+              ],
+              values: ["Discretion", "Reciprocity", "Outcome rigor"],
+              attributes: { engagement_type: "advisory", confidentiality: "non-attribution", notes: "Principal account — Mike S" }
+            })
+          });
+          MIK_GMID = res.gmid;
+          $("acting").value = MIK_GMID;
+          $("mikGmid").textContent = maskGMID(MIK_GMID);
+          setPhase(2);
+          // Refresh stats
+          const db2 = await api("/api/debug/db");
+          $("stat-profiles").textContent = db2.profiles ?? "—";
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    /* ══════════════════════════════
+       RENDER CANDIDATES
+    ══════════════════════════════ */
+    function render(list) {
+      const root = $("results"); root.innerHTML = "";
+      if (!list || list.length === 0) { $("empty").style.display = "flex"; return; }
+      $("empty").style.display = "none";
+
+      list.forEach((item, idx) => {
+        const p = item.profile, score = item.score;
+        const alias = gmidToAlias(p.gmid);
+        const masked = maskGMID(p.gmid);
+        const cardId = `card_${idx}`;
+
+        const div = document.createElement("div");
+        div.className = "candidate";
+        div.id = cardId;
+        div.dataset.gmid = p.gmid;
+        div.dataset.realname = p.display_name;
+        div.dataset.revealed = '0';
+
+        const domainChips = (p.domains || []).slice(0, 3).map(d => `<span class="chip domain">${d}</span>`).join("");
+        const roleChips = (p.roles || []).slice(0, 2).map(r => `<span class="chip">${r}</span>`).join("");
+        const assets = (p.assets_preview || []).slice(0, 3).map(a => `<div class="asset-line">${a}</div>`).join("");
+        const sysBadge = p.is_system ? `<span class="sys-badge">System</span>` : "";
+
+        div.innerHTML = `
+      <div class="candidate-inner">
+        <div class="candidate-avatar">${aliasInitials(alias)}</div>
+        <div class="candidate-body">
+          <div class="candidate-name">
+            <span class="c-name-val" style="transition:filter .3s">${alias}</span>${sysBadge}
+          </div>
+          <div class="candidate-sub" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="c-gmid-val masked" title="GMID masked — click Reveal to view">${masked}</span>
+            <span style="opacity:.3">·</span>
+            <span>${p.experience_years || "—"} yrs exp</span>
+            <span style="opacity:.3">·</span>
+            <span>${(p.networks || [])[0] || "Private Network"}</span>
+          </div>
+          <div class="chips">${domainChips}${roleChips}</div>
+          <div class="assets">${assets}</div>
+        </div>
+        <div class="candidate-score-wrap">
+          <div><span class="score-number">${score}</span><span class="score-denom">/100</span></div>
+          <div class="score-label">Match</div>
+          <div class="score-bar"><div class="score-fill" style="width:0%" data-width="${score}%"></div></div>
+        </div>
+      </div>
+      <div class="candidate-actions">
+        <button class="card-btn c-reveal-btn" onclick="toggleReveal('${cardId}')">◎ Reveal Identity</button>
+        <button class="card-btn gold" data-act="ping" data-gmid="${p.gmid}" data-score="${score}">◈ Send Introduction</button>
+        <a class="card-btn" target="_blank" href="/member/${p.gmid}">Open Profile ↗</a>
+      </div>
+    `;
+        root.appendChild(div);
+      });
+
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          root.querySelectorAll(".score-fill").forEach(el => { el.style.width = el.dataset.width; });
+          setTimeout(() => { if (currentPhase === 3) $('callout4') && ($('callout4').style.display = 'flex'); }, 3000);
+        }, 80);
+      });
+    }
+
+    /* ══════════════════════════════
+       MATCH
+    ══════════════════════════════ */
+    async function match() {
+      const q = $("q").value.trim(); if (!q) return;
+      if (!MIK_GMID) { return; }
+      lastQuery = q;
+      $("meta").textContent = "Consulting…";
+      $("loading").classList.add("active");
+      $("results").innerHTML = "";
+      $("empty").style.display = "none";
+      try {
+        const res = await api("/api/match", { method: "POST", body: JSON.stringify({ query: q, requester_gmid: MIK_GMID }) });
+        $("meta").textContent = `${res.count} candidate${res.count !== 1 ? "s" : ""} — scored /100`;
+        render(res.results);
+        setPhase(3);
+      } catch (e) {
+        $("meta").textContent = "Error — see console"; console.error(e);
+      } finally {
+        $("loading").classList.remove("active");
+      }
+    }
+
+    /* ══════════════════════════════
+       PING
+    ══════════════════════════════ */
+    async function ping(target, score) {
+      const payload = { requester_gmid: MIK_GMID, target_gmid: target, request_text: lastQuery || $("q").value.trim(), score };
+      try {
+        const res = await api("/api/ping", { method: "POST", body: JSON.stringify(payload) });
+        setPhase(4);
+        const notice = document.createElement('div');
+        notice.style.cssText = 'position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:9000;background:rgba(14,14,21,.97);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:16px 28px;font-family:Montserrat,sans-serif;font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:#C9A84C;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:fadeUp .35s ease both;backdrop-filter:blur(16px);text-align:center;min-width:320px';
+        notice.innerHTML = `◈ Introduction Dispatched &nbsp;·&nbsp; <span style="opacity:.5;font-weight:400">ID ${res.ping_id}</span><br><span style="font-family:\'Cormorant Garamond\',serif;font-size:13px;font-weight:300;font-style:italic;color:rgba(168,174,204,.6);letter-spacing:.04em;text-transform:none">Open recipient inbox to review and accept</span>`;
+        document.body.appendChild(notice);
+        setTimeout(() => { notice.style.opacity = '0'; notice.style.transition = 'opacity .4s'; setTimeout(() => notice.remove(), 450); }, 4500);
+        const db = await api("/api/debug/db");
+        $("stat-profiles").textContent = db.profiles ?? "—";
+        $("stat-pings").textContent = db.pings ?? "—";
+      } catch (e) { alert("Failed: " + e.message); }
+    }
+
+    /* ══════════════════════════════
+       EVENTS
+    ══════════════════════════════ */
+    $("go").addEventListener("click", () => match());
+    $("openMe").addEventListener("click", () => { if (MIK_GMID) { setPhase(5); window.open(`/member/${MIK_GMID}`, "_blank"); } });
+    $("results").addEventListener("click", async e => {
+      const b = e.target.closest("[data-act='ping']"); if (!b) return;
+      await ping(b.dataset.gmid, parseInt(b.dataset.score || "0", 10));
+    });
+  </script>
+</body>
+
+</html>

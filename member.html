@@ -1,255 +1,364 @@
+
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Meridian — Member Channel</title>
+  <title>Meridian — Member Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{
-      --obsidian:#060608;--deep:#0A0A0F;--panel:#0E0E15;--surface:#13131E;--rim:rgba(255,255,255,.06);--rim-hover:rgba(255,255,255,.12);
-      --gold:#C9A84C;--gold-light:#E4C778;--blue:#5ea8ff;--blue-soft:#8cc4ff;--platinum:#A8AECC;--snow:#E9EAF4;--green:#4ADE80;--red:#F87171;--ink:#111217;
-      --chat1:rgba(234,223,175,.96);--chat2:rgba(226,210,149,.93);
-    }
-    body{font-family:'Montserrat',sans-serif;background:var(--obsidian);color:var(--snow);overflow-x:hidden}
-    body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E")}
-    body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:
-      radial-gradient(ellipse 55% 35% at 12% 8%, rgba(201,168,76,.08) 0%, transparent 70%),
-      radial-gradient(ellipse 44% 36% at 92% 8%, rgba(94,168,255,.06) 0%, transparent 65%),
-      radial-gradient(ellipse 60% 55% at 58% 96%, rgba(201,168,76,.04) 0%, transparent 72%)}
-    .masthead{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:26px 42px 20px;border-bottom:1px solid var(--rim)}
-    .wordmark{display:flex;align-items:baseline;gap:14px}
-    .wordmark-name{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;letter-spacing:.22em;text-transform:uppercase}
-    .wordmark-rule{width:1px;height:22px;background:var(--gold);opacity:.45;transform:rotate(15deg)}
-    .wordmark-sub{font-size:9px;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--gold)}
-    .nav{display:flex;gap:10px;flex-wrap:wrap}
-    .nav a{padding:10px 14px;border:1px solid var(--rim);border-radius:999px;text-decoration:none;color:var(--platinum);font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}
-    .nav a.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}
-    .nav a.blue{border-color:rgba(94,168,255,.35);color:var(--blue)}
-    .layout{position:relative;z-index:5;display:grid;grid-template-columns:420px 1fr;min-height:calc(100vh - 78px)}
-    .left{border-right:1px solid var(--rim);padding:32px;display:flex;flex-direction:column;gap:18px;background:rgba(10,10,16,.56)}
-    .right{padding:32px 36px;display:flex;flex-direction:column;gap:20px}
-    .card{border:1px solid var(--rim);border-radius:8px;background:var(--panel);padding:18px}
-    .section-label{display:flex;align-items:center;gap:10px;font-size:8px;font-weight:700;letter-spacing:.34em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
-    .section-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--gold),transparent);opacity:.28}
-    .identity{display:flex;align-items:center;gap:14px;border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:14px;background:rgba(201,168,76,.03)}
-    .identity-av{width:42px;height:42px;border-radius:50%;border:1px solid rgba(201,168,76,.28);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold)}
-    .identity-name{font-family:'Cormorant Garamond',serif;font-size:26px}
-    .identity-gmid{font-size:9px;letter-spacing:.16em;color:var(--platinum);opacity:.48}
-    .subtle{font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:rgba(168,174,204,.6);line-height:1.7}
-    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .mini{border:1px solid var(--rim);border-radius:8px;padding:12px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01))}
-    .mini.blue{border-color:rgba(94,168,255,.18);background:linear-gradient(180deg,rgba(94,168,255,.05),rgba(255,255,255,.015))}
-    .mini-val{font-family:'Cormorant Garamond',serif;font-size:30px;line-height:1;color:var(--gold-light)}
-    .mini.blue .mini-val{color:var(--blue-soft)}
-    .mini-lbl{margin-top:6px;font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum);opacity:.65}
-    .field{margin-bottom:12px}
-    .field label{display:block;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum);opacity:.65;margin-bottom:6px}
-    .field input,.field textarea,.field select{width:100%;background:var(--surface);border:1px solid var(--rim);color:var(--snow);border-radius:8px;padding:12px 14px;font-family:'Montserrat',sans-serif}
-    .field textarea{min-height:78px;resize:vertical}
-    .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:rgba(201,168,76,.42);box-shadow:0 0 0 3px rgba(201,168,76,.08)}
-    .field.blue input:focus,.field.blue textarea:focus,.field.blue select:focus{border-color:rgba(94,168,255,.42);box-shadow:0 0 0 3px rgba(94,168,255,.08)}
-    .btn-row{display:flex;gap:10px;flex-wrap:wrap}
-    .btn{padding:12px 16px;border-radius:8px;border:1px solid var(--rim);background:transparent;color:var(--platinum);cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}
-    .btn.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}
-    .btn.blue{border-color:rgba(94,168,255,.35);color:var(--blue)}
-    .btn.green{border-color:rgba(74,222,128,.3);color:var(--green)}
-    .btn.red{border-color:rgba(248,113,113,.3);color:var(--red)}
-    .btn:hover{color:var(--snow);border-color:var(--rim-hover);background:rgba(255,255,255,.03)}
-    .tabs{display:flex;gap:10px;flex-wrap:wrap}
-    .tab{padding:10px 14px;border:1px solid var(--rim);background:transparent;border-radius:999px;color:var(--platinum);font-size:8px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;cursor:pointer}
-    .tab.active{border-color:rgba(201,168,76,.38);color:var(--gold);background:rgba(201,168,76,.05)}
-    .list{display:flex;flex-direction:column;gap:12px}
-    .intro{border:1px solid var(--rim);border-radius:8px;background:var(--panel);padding:16px}
-    .intro-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-    .intro-name{font-family:'Cormorant Garamond',serif;font-size:24px}
-    .intro-meta{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum);opacity:.62;margin-top:4px}
-    .intro-brief{margin-top:12px;color:rgba(233,234,244,.85);line-height:1.75}
-    .intro-actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
-    .state-pill{display:inline-flex;align-items:center;padding:6px 11px;border-radius:999px;border:1px solid var(--rim);font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
-    .state-pill.live{color:var(--green);border-color:rgba(74,222,128,.28)}
-    .state-pill.pending{color:var(--gold);border-color:rgba(201,168,76,.28)}
-    .state-pill.declined{color:var(--red);border-color:rgba(248,113,113,.28)}
-    .chat-wrap{display:flex;flex-direction:column;gap:14px}
-    .chat-box{min-height:360px;border:1px solid rgba(201,168,76,.26);border-radius:12px;padding:18px;background:linear-gradient(180deg,var(--chat1),var(--chat2));display:flex;flex-direction:column;gap:10px;overflow:auto}
-    .msg{max-width:74%;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.07)}
-    .msg.me{align-self:flex-end;background:rgba(17,18,23,.9);border-color:rgba(17,18,23,.92)}
-    .msg.me .msg-meta,.msg.me .msg-body{color:#f1e5bb}
-    .msg:not(.me) .msg-meta{color:rgba(17,18,23,.6)}
-    .msg:not(.me) .msg-body{color:var(--ink)}
-    .msg-meta{font-size:8px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:6px}
-    .msg-body{font-size:13px;line-height:1.65}
-    .compose{display:flex;gap:10px}
-    .compose textarea{flex:1;min-height:96px;background:rgba(235,225,181,.88);border:1px solid rgba(201,168,76,.32);color:var(--ink);border-radius:10px;padding:14px;font-family:'Montserrat',sans-serif}
-    .compose textarea:focus{outline:none;border-color:rgba(201,168,76,.62);box-shadow:0 0 0 3px rgba(201,168,76,.12)}
-    .small{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:rgba(168,174,204,.45)}
-    .success{margin-top:8px;font-size:11px;color:var(--green)}
-    .empty{padding:36px;border:1px solid var(--rim);border-radius:8px;background:var(--panel);text-align:center;color:rgba(168,174,204,.45);font-family:'Cormorant Garamond',serif;font-size:20px}
-    
+    :root{--obsidian:#060608;--panel:#0E0E15;--surface:#13131E;--rim:rgba(255,255,255,.06);--gold:#C9A84C;--gold-light:#E4C778;--platinum:#A8AECC;--snow:#E9EAF4;--green:#4ADE80;--red:#F87171;--blue:#63acff;--chat1:rgba(234,223,175,.96);--chat2:rgba(226,210,149,.93);--ink:#101013}
+    *{box-sizing:border-box} body{margin:0;background:var(--obsidian);color:var(--snow);font-family:Montserrat,sans-serif}
+    .wrap{max-width:1320px;margin:0 auto;padding:28px}.top{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px}.title{font-family:'Cormorant Garamond',serif;font-size:34px;letter-spacing:.06em}.title em{color:var(--gold);font-style:italic}.sub{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--platinum);opacity:.55;margin-top:4px}
+    .nav{display:flex;gap:10px;flex-wrap:wrap}.nav a,.nav button{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:10px 14px;border-radius:999px;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;text-decoration:none;cursor:pointer}.nav .gold{border-color:rgba(201,168,76,.35);color:var(--gold)}.nav .blue{border-color:rgba(99,172,255,.35);color:var(--blue)}
+    .grid{display:grid;grid-template-columns:370px 1fr;gap:22px}
+    .panel{border:1px solid var(--rim);border-radius:14px;background:linear-gradient(180deg,rgba(14,14,21,.96),rgba(10,10,16,.96));padding:18px}
+    .identity{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.05);margin-bottom:14px}
+    .av{width:48px;height:48px;border-radius:50%;border:1px solid rgba(201,168,76,.28);display:flex;align-items:center;justify-content:center;color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:20px}
+    .name{font-family:'Cormorant Garamond',serif;font-size:28px}.meta{font-size:9px;letter-spacing:.18em;color:var(--platinum);opacity:.55;margin-top:4px}.gmid-card{margin:12px 0 16px;padding:14px;border:1px solid rgba(201,168,76,.18);border-radius:12px;background:rgba(201,168,76,.04)}.gmid-label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}.gmid-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.gmid-value{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;letter-spacing:.08em;color:var(--snow);word-break:break-all}.gmid-actions{display:flex;gap:8px;flex-wrap:wrap}.mini-btn{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:8px 10px;border-radius:999px;font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;cursor:pointer}.mini-btn.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.tab{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:9px 12px;border-radius:999px;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;cursor:pointer}.tab.active{border-color:rgba(201,168,76,.36);color:var(--gold);background:rgba(201,168,76,.05)}
+    .tiny{font-size:11px;color:rgba(168,174,204,.72);line-height:1.7}.list{display:flex;flex-direction:column;gap:10px;max-height:760px;overflow:auto}
+    .ping{border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:12px;background:rgba(255,255,255,.015);cursor:pointer;transition:.18s}.ping:hover{border-color:rgba(255,255,255,.11);transform:translateY(-1px)}.ping.active{border-color:rgba(201,168,76,.28);background:rgba(201,168,76,.035)}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:12px}.alias{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--snow)}.ping-meta{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--platinum);opacity:.55;margin-top:6px;display:flex;gap:8px;flex-wrap:wrap}.brief{margin-top:10px;color:rgba(233,234,244,.84);line-height:1.7}
+    .status{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--rim);font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
+    .status.pending{color:var(--gold);border-color:rgba(201,168,76,.28)}.status.accepted{color:var(--green);border-color:rgba(74,222,128,.28)}.status.declined{color:var(--red);border-color:rgba(248,113,113,.28)}
+    .detail-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.05)}.detail-title{font-family:'Cormorant Garamond',serif;font-size:34px}.detail-meta{font-size:10px;letter-spacing:.2em;color:var(--platinum);opacity:.58;margin-top:6px;text-transform:uppercase}
+    .detail-block{margin-top:18px;padding:16px;border:1px solid rgba(255,255,255,.05);border-radius:12px;background:rgba(255,255,255,.02)}.detail-label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.btn{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:11px 14px;border-radius:8px;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;cursor:pointer}.btn.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}.btn.green{border-color:rgba(74,222,128,.32);color:var(--green)}.btn.red{border-color:rgba(248,113,113,.32);color:var(--red)}.btn.blue{border-color:rgba(99,172,255,.35);color:var(--blue)}
+    .empty{padding:38px;text-align:center;border:1px dashed rgba(255,255,255,.08);border-radius:12px;color:rgba(168,174,204,.48);font-family:'Cormorant Garamond',serif;font-size:22px}
+    .chat-wrap{margin-top:18px}.chat-box{min-height:300px;max-height:420px;overflow:auto;border:1px solid rgba(201,168,76,.25);border-radius:12px;padding:16px;background:linear-gradient(180deg,var(--chat1),var(--chat2))}
+    .msg{display:flex;margin-bottom:10px}.msg.me{justify-content:flex-end}.bubble{max-width:75%;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.07)}.msg.me .bubble{background:rgba(17,18,23,.9);border-color:rgba(17,18,23,.92);color:#f1e5bb}.msg-meta{font-size:8px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px;color:rgba(17,18,23,.65)}.msg.me .msg-meta{color:#eadca9}.msg-text{line-height:1.6;color:var(--ink)}.msg.me .msg-text{color:#f1e5bb}
+    .composer{display:flex;gap:10px;margin-top:12px}.composer textarea{flex:1;min-height:94px;border:1px solid rgba(201,168,76,.32);border-radius:10px;padding:14px;background:rgba(235,225,181,.88);color:var(--ink);font-family:Montserrat,sans-serif}
     .network-modal{position:fixed;inset:0;background:rgba(3,4,8,.72);backdrop-filter:blur(4px);z-index:999;display:none;align-items:center;justify-content:center;padding:24px}
     .network-panel{width:min(1100px,96vw);height:min(760px,92vh);background:linear-gradient(180deg,rgba(14,14,21,.98),rgba(10,10,15,.98));border:1px solid rgba(94,168,255,.22);border-radius:14px;box-shadow:0 20px 80px rgba(0,0,0,.45);display:grid;grid-template-rows:auto 1fr}
-    .network-head{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--rim)}
-    .network-title{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--snow)}
-    .network-body{padding:18px;display:grid;grid-template-columns:1.3fr .9fr;gap:18px;min-height:0}
-    .network-canvas{position:relative;border:1px solid var(--rim);border-radius:12px;background:
-      radial-gradient(ellipse 45% 35% at 50% 50%, rgba(94,168,255,.06) 0%, transparent 65%),
-      linear-gradient(180deg, rgba(255,255,255,.01), rgba(255,255,255,.0));
-      overflow:hidden;min-height:420px}
-    .network-svg{position:absolute;inset:0;width:100%;height:100%}
-    .network-node{position:absolute;transform:translate(-50%,-50%);min-width:120px;max-width:180px;padding:10px 12px;border-radius:999px;border:1px solid rgba(201,168,76,.22);background:rgba(14,14,21,.94);text-align:center;font-size:11px;letter-spacing:.06em;color:var(--snow);box-shadow:0 6px 18px rgba(0,0,0,.25)}
-    .network-node.me{border-color:rgba(201,168,76,.42);background:rgba(201,168,76,.08);color:var(--gold-light)}
-    .network-list{border:1px solid var(--rim);border-radius:12px;background:rgba(255,255,255,.015);padding:14px;overflow:auto}
-    .network-item{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.04)}
-    .network-item:last-child{border-bottom:none}
-    .network-item-name{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--snow)}
-    .network-item-meta{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--platinum);opacity:.62;margin-top:4px}
+    .network-head{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--rim)}.network-title{font-family:'Cormorant Garamond',serif;font-size:28px}
+    .network-body{padding:18px;display:grid;grid-template-columns:1.3fr .9fr;gap:18px;min-height:0}.network-canvas{position:relative;border:1px solid var(--rim);border-radius:12px;background:radial-gradient(ellipse 45% 35% at 50% 50%, rgba(94,168,255,.06) 0%, transparent 65%),linear-gradient(180deg, rgba(255,255,255,.01), rgba(255,255,255,.0));overflow:hidden;min-height:420px}.network-svg{position:absolute;inset:0;width:100%;height:100%}
+    .network-node{position:absolute;transform:translate(-50%,-50%);min-width:120px;max-width:180px;padding:10px 12px;border-radius:999px;border:1px solid rgba(201,168,76,.22);background:rgba(14,14,21,.94);text-align:center;font-size:11px;letter-spacing:.06em;color:var(--snow)}
+    .network-node.me{border-color:rgba(201,168,76,.42);background:rgba(201,168,76,.08);color:var(--gold-light)}.network-list{border:1px solid var(--rim);border-radius:12px;background:rgba(255,255,255,.015);padding:14px;overflow:auto}.network-item{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.04)}.network-item:last-child{border-bottom:none}.network-item-name{font-family:'Cormorant Garamond',serif;font-size:22px}.network-item-meta{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--platinum);opacity:.62;margin-top:4px}
+    .hero-panel{display:grid;grid-template-columns:1.12fr .88fr;gap:16px;margin-bottom:18px}.hero-card,.quick-card,.search-card,.result-card{border:1px solid rgba(255,255,255,.05);border-radius:14px;background:rgba(255,255,255,.02);padding:18px}.hero-title{font-family:'Cormorant Garamond',serif;font-size:38px;line-height:1.02;margin:0 0 8px}.hero-copy{color:rgba(233,234,244,.78);line-height:1.7;font-size:13px}.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}.stat{padding:12px;border:1px solid rgba(255,255,255,.05);border-radius:12px;background:rgba(255,255,255,.015)}.stat-value{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--gold-light)}.stat-label{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum);opacity:.62;margin-top:6px}.quick-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.quick-card .tiny{margin-top:8px}.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.chip{padding:7px 10px;border-radius:999px;border:1px solid var(--rim);font-size:10px;color:var(--platinum);background:rgba(255,255,255,.02)}.search-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:12px}.search-title{font-family:'Cormorant Garamond',serif;font-size:32px}.search-grid{display:grid;grid-template-columns:1fr 170px;gap:12px}.search-input{width:100%;background:var(--surface);border:1px solid rgba(201,168,76,.22);border-radius:12px;padding:14px 16px;color:var(--snow);font-family:Montserrat,sans-serif}.match-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.match-card{border:1px solid rgba(201,168,76,.14);border-radius:14px;background:rgba(255,255,255,.018);padding:16px}.match-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.match-name{font-family:'Cormorant Garamond',serif;font-size:28px}.match-meta{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--platinum);opacity:.58;margin-top:6px}.score-badge{display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;border:1px solid rgba(201,168,76,.24);color:var(--gold-light);font-size:10px;letter-spacing:.16em;text-transform:uppercase}.match-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.match-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.composer-inline{display:none;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.05)}.composer-inline textarea{width:100%;min-height:90px;border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:12px;background:rgba(255,255,255,.02);color:var(--snow);font-family:Montserrat,sans-serif}.section-divider{height:1px;background:linear-gradient(90deg, rgba(201,168,76,.25), transparent);margin:18px 0}.muted-note{font-size:11px;color:rgba(168,174,204,.72);line-height:1.7}.hide{display:none!important}
+@media(max-width:960px){.grid{grid-template-columns:1fr}.wrap{padding:18px}.network-body{grid-template-columns:1fr}.hero-panel{grid-template-columns:1fr}.hero-stats{grid-template-columns:repeat(2,1fr)}.match-list{grid-template-columns:1fr}.search-grid{grid-template-columns:1fr}}
 
-    @media(max-width:980px){.layout{grid-template-columns:1fr}.left{border-right:none;border-bottom:1px solid var(--rim)}.stats{grid-template-columns:1fr}.masthead{padding:22px 24px}.right,.left{padding:24px}}
+    .notice-stack{position:fixed;right:24px;bottom:24px;z-index:1200;display:flex;flex-direction:column;gap:12px;pointer-events:none}
+    .notice{min-width:360px;max-width:520px;padding:16px 18px;border-radius:14px;border:1px solid rgba(201,168,76,.28);background:linear-gradient(180deg,rgba(13,13,19,.96),rgba(9,9,14,.98));box-shadow:0 18px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.02);pointer-events:auto;animation:noticeIn .22s ease-out}
+    .notice.error{border-color:rgba(248,113,113,.34)}
+    .notice-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:9px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}
+    .notice.error .notice-head{color:var(--red)}
+    .notice-dot{width:8px;height:8px;transform:rotate(45deg);border-radius:1px;background:currentColor;box-shadow:0 0 0 3px rgba(201,168,76,.08)}
+    .notice.error .notice-dot{box-shadow:0 0 0 3px rgba(248,113,113,.08)}
+    .notice-title{font-family:'Cormorant Garamond',serif;font-size:26px;line-height:1;color:var(--snow)}
+    .notice-sub{margin-top:4px;color:rgba(168,174,204,.8);font-style:italic;font-size:12px;line-height:1.5}
+    @keyframes noticeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
   </style>
 </head>
 <body>
-  <header class="masthead">
-    <div class="wordmark"><div class="wordmark-name">Meridian</div><div class="wordmark-rule"></div><div class="wordmark-sub">Member Channel</div></div>
-    <div class="nav"><a href="/" class="gold">Home</a><a href="/" class="gold">Exchange</a><a href="/rankings" class="blue">Group Rankings</a><button class="btn blue" id="openNetworkBtn" type="button">My Network</button></div>
-  </header>
-  <div class="layout">
-    <aside class="left">
-      <div class="card"><div class="section-label">Current Member</div><div class="identity"><div class="identity-av" id="currentAv">??</div><div><div class="identity-name" id="currentName">Loading…</div><div class="identity-gmid" id="currentGmid">{{GMID}}</div></div></div></div>
-      <div class="card"><div class="section-label">Connection Summary</div><div class="stats"><div class="mini"><div class="mini-val" id="sumConnections">0</div><div class="mini-lbl">Total Connections</div></div><div class="mini blue"><div class="mini-val" id="sumRank">—</div><div class="mini-lbl">General Rank</div></div><div class="mini"><div class="mini-val" id="sumStrength">—</div><div class="mini-lbl">Profile Strength</div></div></div><div class="subtle" style="margin-top:12px">Your general rank compares your profile strength against all profiles. More complete profile data moves you up.</div></div>
-      <div class="card"><div class="section-label">Send Invitation</div><div class="field blue"><label>Target Member</label><select id="inviteTarget"></select></div><div class="field"><label>Request Brief</label><textarea id="inviteText" placeholder="Describe the request you want to send…"></textarea></div><div class="btn-row"><button class="btn gold" id="sendInviteBtn">Send Invitation</button></div><div id="inviteStatus" class="success"></div></div>
-      <div class="card"><div class="section-label">Add To My Profile</div><div class="field blue"><label>Domains</label><input id="pfDomains" placeholder="Comma separated"></div><div class="field"><label>Roles</label><input id="pfRoles" placeholder="Comma separated"></div><div class="field blue"><label>Networks</label><input id="pfNetworks" placeholder="Comma separated"></div><div class="field"><label>Values</label><input id="pfValues" placeholder="Comma separated"></div><div class="field blue"><label>Years Experience</label><input id="pfYears" type="number" min="0" step="1"></div><div class="field"><label>Assets / Wins</label><textarea id="pfAssets" placeholder="Comma separated wins, credentials, outcomes"></textarea></div><div class="field blue"><label>Load Documents</label><input id="pfDoc" type="file" accept=".pdf,.docx,.txt,.md,.html,.htm"></div><div class="btn-row"><button class="btn gold" id="saveProfileBtn">Update Profile</button><button class="btn blue" id="ingestDocBtn">Parse Document</button></div><div id="profileStatus" class="success"></div></div>
-      <div class="card"><div class="section-label">Navigation</div><div class="btn-row"><a class="btn gold" href="/">Back To Exchange</a><a class="btn blue" href="/rankings">Open Group Rankings</a><button class="btn gold" id="refreshBtn">Refresh</button></div></div>
-    </aside>
-    <main class="right">
-      <div><div class="section-label">Introductions & Connections</div><div class="tabs"><button class="tab active" data-tab="received">Received</button><button class="tab" data-tab="sent">Sent</button><button class="tab" data-tab="accepted">Accepted</button><button class="tab" data-tab="declined">Declined</button></div></div>
-      <div><div class="section-label">Thread List</div><div id="introList" class="list"></div></div>
-      <div><div class="section-label">Secure Chat</div><div class="chat-wrap"><div id="chatState" class="small">No accepted thread selected yet.</div><div id="chatBox" class="chat-box"><div class="empty" style="background:transparent;border-color:rgba(17,18,23,.08);color:rgba(17,18,23,.45)">Choose an accepted connection to begin</div></div><div class="compose"><textarea id="msgInput" placeholder="Write privately into the secure channel…" disabled></textarea><button class="btn gold" id="sendBtn" disabled>Send</button></div></div></div>
-    </main>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">Member Console</div>
+        <div class="sub">Inbox · Accepted · Declined · Sent · Secure Channel</div>
+      </div>
+      <div class="nav">
+        <a href="/me" class="gold">My Concierge</a>
+        <a href="/members" class="blue">Members</a>
+        <a href="/rankings" class="blue">Group Rankings</a>
+        <a href="/invite-member" class="gold">Invite New Member</a>
+        <button class="blue" id="openNetworkBtn" type="button">My Network</button>
+        <button class="blue" id="logoutBtn" type="button">Logout</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="identity">
+          <div class="av" id="memberAv">M</div>
+          <div>
+            <div class="name" id="memberName">Loading…</div>
+            <div class="meta" id="memberMeta">{{GMID}}</div>
+          </div>
+        </div>
+
+        <div class="gmid-card">
+          <div class="gmid-label">Your GMID</div>
+          <div class="gmid-row">
+            <div class="gmid-value" id="memberGmid">{{GMID}}</div>
+            <div class="gmid-actions">
+              <button class="mini-btn" id="toggleGmidBtn" type="button">Reveal</button>
+              <button class="mini-btn gold" id="copyGmidBtn" type="button">Copy GMID</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="received">Inbox</button>
+          <button class="tab" data-tab="accepted">Accepted</button>
+          <button class="tab" data-tab="declined">Declined</button>
+          <button class="tab" data-tab="sent">Sent</button>
+        </div>
+
+        <div class="tiny" id="inboxCount" style="margin-bottom:12px">0 items</div>
+        <div class="list" id="inboxList"></div>
+      </div>
+
+      <div class="panel">
+        <div class="hero-panel">
+          <div class="hero-card">
+            <div class="detail-label">My Concierge</div>
+            <h1 class="hero-title">Your private Meridian home.</h1>
+            <div class="hero-copy">This is your profile-led concierge page. Ask Concierge for the right match, review introductions, and move from trusted search to private channel without leaving home.</div>
+            <div class="hero-stats">
+              <div class="stat"><div class="stat-value" id="heroStrength">0</div><div class="stat-label">Profile Strength</div></div>
+              <div class="stat"><div class="stat-value" id="heroConnections">0</div><div class="stat-label">Accepted Links</div></div>
+              <div class="stat"><div class="stat-value" id="heroPending">0</div><div class="stat-label">Pending</div></div>
+              <div class="stat"><div class="stat-value" id="heroSent">0</div><div class="stat-label">Sent</div></div>
+            </div>
+            <div class="quick-links">
+              <a href="/members" class="btn blue">Browse Members</a>
+              <a href="/rankings" class="btn blue">Group Rankings</a>
+              <a href="/invite-member" class="btn gold">Invite New Member</a>
+            </div>
+          </div>
+          <div class="quick-card">
+            <div class="detail-label">My Profile</div>
+            <div class="detail-title" id="profileAlias">Loading…</div>
+            <div class="tiny" id="profileHeadline">Profile loading…</div>
+            <div class="chips" id="profileChips"></div>
+            <div class="section-divider"></div>
+            <div class="muted-note" id="profileAssets">Your profile signals will appear here for quick review.</div>
+          </div>
+        </div>
+
+        <div class="search-card">
+          <div class="search-head">
+            <div>
+              <div class="detail-label">Ask Concierge</div>
+              <div class="search-title">Search for trusted matches</div>
+            </div>
+            <div class="tiny">Restored to your home page</div>
+          </div>
+          <div class="search-grid">
+            <input class="search-input" id="matchQuery" placeholder="Example: Need a COO with construction and ERP transformation depth" />
+            <button class="btn gold" id="runMatchBtn" type="button">Search Matches</button>
+          </div>
+          <div class="muted-note" style="margin-top:12px">Concierge uses your live member base only. Ranked system placeholders are excluded.</div>
+          <div id="matchResults" class="match-list"></div>
+        </div>
+
+        <div class="result-card">
+          <div id="detailPane" class="empty">Select an introduction from the left or run a concierge search above.</div>
+        </div>
+      </div>
+    </div>
   </div>
-<script>
-const CURRENT_GMID="{{GMID}}"; let currentPingId=null,profiles=[],receivedItems=[],sentItems=[],activeTab="received";
-const $=id=>document.getElementById(id);
-async function j(url,opts={}){const res=await fetch(url,opts); if(!res.ok) throw new Error(await res.text()); return res.json();}
-const ADJ=['Blue','Red','Green','Swift','Bold','Wise','Fierce','Calm','Silent','Brave','Mystic','Dark','Light','Stormy','Fiery','Icy','Golden','Silver','Shadow','Thunder','Ancient','Eternal','Vivid','Quiet','Loud','Sharp','Dull','Bright','Dim','Hot','Cold','Wet','Dry','Fast','Slow','Heavy','Strong','Weak','Tall','Short','Long','Brief','Deep','Shallow','Wide','Narrow','Old','New','Young','Aged','Pure','Tainted','Clear','Cloudy','Sunny','Rainy','Windy','Still','Wild','Tame','Free','Bound','Happy','Sad','Angry','Peaceful','Chaotic','Orderly','Elegant','Clumsy','Graceful','Awkward','Smart','Clever','Rich','Poor','Full','Empty','Open','Closed','Locked','Unlocked','Safe','Dangerous','Friendly','Hostile','Warm','Cool','Soft','Hard','Smooth','Rough','Shiny','Matte','Vibrant','Faded','Iron','Velvet'];
-const NOU=['Dragon','Phoenix','Tiger','Eagle','Wolf','Fox','Bear','Lion','Hawk','Raven','Shark','Panther','Owl','Falcon','Viper','Cobra','Lynx','Stag','Bull','Horse','Snake','Spider','Scorpion','Whale','Dolphin','Fish','Bird','Cat','Dog','Mouse','Bat','Deer','Elk','Moose','Rabbit','Hare','Squirrel','Beaver','Otter','Seal','Walrus','Penguin','Ostrich','Peacock','Parrot','Crow','Dove','Swan','Goose','Duck','Pig','Cow','Sheep','Goat','Donkey','Mule','Camel','Llama','Elephant','Rhino','Hippo','Giraffe','Zebra','Antelope','Buffalo','Bison','Yak','Monkey','Ape','Gorilla','Chimp','Lemur','Sloth','Koala','Kangaroo','Platypus','Turtle','Tortoise','Lizard','Gecko','Iguana','Alligator','Crocodile','Frog','Toad','Salamander','Newt','Butterfly','Moth','Bee','Wasp','Condor','Manta','Narwhal','Puma','Jaguar','Raptor','Coyote','Badger'];
-function alias(g){const c=(g||'').replace(/[^a-fA-F0-9]/g,'').toLowerCase().padEnd(16,'0');return ADJ[parseInt(c.slice(0,8),16)%ADJ.length]+NOU[parseInt(c.slice(8,16),16)%NOU.length]}
-function mask(g){const s=(g||'').replace(/[^a-fA-F0-9]/g,'');if(s.length<8)return s.substring(0,4)+'…';return s.substring(0,4)+'·'.repeat(Math.max(4,s.length-8))+s.substring(s.length-4)}
-function initials(t){const p=(t.match(/[A-Z][a-z]*/g)||t.split(' ')||['?']);return p.slice(0,2).map(x=>x[0]).join('').toUpperCase()}
-function prof(g){return profiles.find(x=>x.gmid===g)||null}
-function display(g){const p=prof(g); return p?p.display_name:alias(g)}
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
-async function loadProfiles(){const res=await j('/api/profiles?limit=300'); profiles=res.profiles||[]; const me=prof(CURRENT_GMID); const name=me?me.display_name:alias(CURRENT_GMID); $('currentName').textContent=name; $('currentGmid').textContent=mask(CURRENT_GMID); $('currentAv').textContent=initials(name); const sel=$('inviteTarget'); sel.innerHTML=''; profiles.filter(p=>p.gmid!==CURRENT_GMID).forEach(p=>{const o=document.createElement('option'); o.value=p.gmid; o.textContent=`${alias(p.gmid)} · ${p.display_name}`; sel.appendChild(o);});}
-async function loadSummary(){const s=await j(`/api/profile_summary/${CURRENT_GMID}`); $('sumConnections').textContent=s.total_connections??0; $('sumRank').textContent=s.rank?`#${s.rank}`:'—'; $('sumStrength').textContent=s.strength_score??'—'; if(s.profile){$('pfDomains').value=(s.profile.domains||[]).join(', '); $('pfRoles').value=(s.profile.roles||[]).join(', '); $('pfNetworks').value=(s.profile.networks||[]).join(', '); $('pfValues').value=(s.profile.values||[]).join(', '); $('pfYears').value=s.profile.experience_years??''; $('pfAssets').value=(s.profile.assets||[]).join(', ');}}
-async function loadThreads(){const inbox=await j(`/api/inbox/${CURRENT_GMID}`); const outbox=await j(`/api/outbox/${CURRENT_GMID}`); receivedItems=inbox.items||[]; sentItems=outbox.items||[]; renderList();}
-function itemsForTab(){if(activeTab==='received') return receivedItems; if(activeTab==='sent') return sentItems; const all=[...receivedItems,...sentItems], seen=new Set(); if(activeTab==='accepted') return all.filter(x=>x.status==='accepted' && !seen.has(x.id) && seen.add(x.id)); if(activeTab==='declined') return all.filter(x=>x.status==='declined' && !seen.has(x.id) && seen.add(x.id)); return all;}
-function cp(item){return item.requester_gmid===CURRENT_GMID?item.target_gmid:item.requester_gmid}
-function role(item){return item.requester_gmid===CURRENT_GMID?'Recipient':'Requester'}
-function renderList(){const items=itemsForTab(); const root=$('introList'); root.innerHTML=''; if(!items.length){const label=activeTab==='received'?'No received introductions yet':activeTab==='sent'?'No sent introductions yet':activeTab==='accepted'?'No accepted connections yet':'No declined introductions yet'; root.innerHTML=`<div class="empty">${label}</div>`; return;} items.forEach(item=>{const g=cp(item), nm=display(g), accepted=item.status==='accepted', declined=item.status==='declined', pending=item.status==='pending'; const pill=accepted?'live':declined?'declined':'pending'; const div=document.createElement('div'); div.className='intro'; div.innerHTML=`<div class="intro-top"><div><div class="intro-name">${nm}</div><div class="intro-meta">${role(item)} · ${mask(g)} · Score ${item.score}/100 · ${item.created_at}</div></div><div class="state-pill ${pill}">${item.status}</div></div><div class="intro-brief">${esc(item.request_text)}</div><div class="intro-actions">${(item.target_gmid===CURRENT_GMID && pending)?`<button class="btn green" onclick="respondPing(${item.id},'accepted')">Accept</button><button class="btn red" onclick="respondPing(${item.id},'declined')">Decline</button>`:''}${accepted?`<button class="btn gold" onclick="openThread(${item.id})">Open Channel</button>`:''}<a class="btn blue" target="_blank" href="/member/${g}">Open Member View</a></div>`; root.appendChild(div);});}
-async function respondPing(id,status){await fetch(`/api/ping/${id}/respond`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})}); await Promise.all([loadThreads(),loadSummary()]); if(status==='accepted') openThread(id);}
-async function openThread(id){currentPingId=id; $('chatState').textContent=`Active accepted thread #${id}`; $('msgInput').disabled=false; $('sendBtn').disabled=false; await loadChat();}
-async function loadChat(){if(!currentPingId) return; const res=await j(`/api/chat/${currentPingId}`); const msgs=res.messages||[]; const box=$('chatBox'); box.innerHTML=''; if(!msgs.length){box.innerHTML='<div class="empty" style="background:transparent;border-color:rgba(17,18,23,.08);color:rgba(17,18,23,.45)">Channel open. No messages yet.</div>'; return;} msgs.forEach(m=>{const d=document.createElement('div'); d.className='msg'+(m.sender_gmid===CURRENT_GMID?' me':''); d.innerHTML=`<div class="msg-meta">${display(m.sender_gmid)} · ${m.created_at}</div><div class="msg-body">${esc(m.message)}</div>`; box.appendChild(d);}); box.scrollTop=box.scrollHeight;}
-async function sendMessage(){const box=$('msgInput'); const msg=box.value.trim(); if(!msg||!currentPingId) return; await fetch(`/api/chat/${currentPingId}/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sender_gmid:CURRENT_GMID,message:msg})}); box.value=''; await loadChat();}
-async function sendInvitation(){const target=$('inviteTarget').value, text=$('inviteText').value.trim(); if(!target||!text){$('inviteStatus').textContent='Choose a target and enter a brief.'; return;} await fetch('/api/ping',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requester_gmid:CURRENT_GMID,target_gmid:target,request_text:text,score:88})}); $('inviteText').value=''; $('inviteStatus').textContent='Invitation sent.'; setTimeout(()=>{$('inviteStatus').textContent='';},2500); await loadThreads();}
-async function saveProfile(){const payload={domains:$('pfDomains').value,roles:$('pfRoles').value,networks:$('pfNetworks').value,values:$('pfValues').value,experience_years:$('pfYears').value,assets:$('pfAssets').value}; await fetch(`/api/profile/${CURRENT_GMID}/update`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); $('profileStatus').textContent='Profile updated.'; await Promise.all([loadProfiles(),loadSummary()]); setTimeout(()=>{$('profileStatus').textContent='';},2500);}
-async function ingestDocument(){const file=$('pfDoc').files[0]; if(!file){$('profileStatus').textContent='Choose a document first.'; return;} const fd=new FormData(); fd.append('file',file); const res=await fetch(`/api/profile/${CURRENT_GMID}/ingest-document`,{method:'POST',body:fd}); if(!res.ok){$('profileStatus').textContent='Could not parse that document.'; return;} const data=await res.json(); $('profileStatus').textContent=data.message||'Document parsed.'; await Promise.all([loadProfiles(),loadSummary()]); setTimeout(()=>{$('profileStatus').textContent='';},3500);}
-document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); activeTab=b.dataset.tab; renderList();}));
-$('refreshBtn').addEventListener('click',async()=>{await Promise.all([loadThreads(),loadSummary()]); if(currentPingId) await loadChat();});
-const openNetworkEl=$('openNetworkBtn');
-const closeNetworkEl=$('closeNetworkBtn');
-const networkModalEl=$('networkModal');
-if(openNetworkEl) openNetworkEl.addEventListener('click',openNetwork);
-if(closeNetworkEl) closeNetworkEl.addEventListener('click',closeNetwork);
-if(networkModalEl) networkModalEl.addEventListener('click',e=>{if(e.target.id==='networkModal') closeNetwork();});
-$('sendBtn').addEventListener('click',sendMessage); $('sendInviteBtn').addEventListener('click',sendInvitation); $('saveProfileBtn').addEventListener('click',saveProfile); $('ingestDocBtn').addEventListener('click',ingestDocument); $('msgInput').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')sendMessage();});
-
-async function openNetwork(){
-  const modal=$('networkModal');
-  const canvas=$('networkCanvas');
-  const svg=$('networkSvg');
-  const list=$('networkList');
-  modal.style.display='flex';
-  const res=await j(`/api/network/${CURRENT_GMID}`);
-  const nodes=res.nodes||[];
-  const edges=res.edges||[];
-  svg.innerHTML='';
-  list.innerHTML='';
-  canvas.querySelectorAll('.network-node').forEach(n=>n.remove());
-  const w=canvas.clientWidth||700, h=canvas.clientHeight||520;
-  const centerX=w/2, centerY=h/2;
-  const others=nodes.filter(n=>n.gmid!==CURRENT_GMID);
-  const positions={};
-  positions[CURRENT_GMID]={x:centerX,y:centerY};
-  const radius=Math.max(160, Math.min(240, Math.min(w,h)/2.7));
-  others.forEach((n,i)=>{
-    const angle=(Math.PI*2*i)/Math.max(1,others.length)-Math.PI/2;
-    positions[n.gmid]={x:centerX+Math.cos(angle)*radius,y:centerY+Math.sin(angle)*radius};
-  });
-  edges.forEach(e=>{
-    const a=positions[CURRENT_GMID];
-    const b=positions[e.other_gmid] || positions[e.to_gmid] || positions[e.from_gmid];
-    if(!a||!b) return;
-    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1',a.x); line.setAttribute('y1',a.y);
-    line.setAttribute('x2',b.x); line.setAttribute('y2',b.y);
-    line.setAttribute('stroke','rgba(94,168,255,.55)');
-    line.setAttribute('stroke-width','2');
-    line.setAttribute('stroke-linecap','round');
-    svg.appendChild(line);
-  });
-  nodes.forEach(n=>{
-    const p=positions[n.gmid] || {x:centerX,y:centerY};
-    const d=document.createElement('div');
-    d.className='network-node'+(n.gmid===CURRENT_GMID?' me':'');
-    d.style.left=p.x+'px'; d.style.top=p.y+'px';
-    d.textContent=n.gmid===CURRENT_GMID ? 'Me' : n.label;
-    canvas.appendChild(d);
-  });
-  edges.forEach(e=>{
-    const div=document.createElement('div');
-    div.className='network-item';
-    div.innerHTML=`<div class="network-item-name">${e.other_name}</div><div class="network-item-meta">Accepted connection · Thread ${e.ping_id}</div>`;
-    list.appendChild(div);
-  });
-  if(!edges.length){
-    list.innerHTML='<div class="empty">No accepted connections yet</div>';
-  }
-}
-function closeNetwork(){ $('networkModal').style.display='none'; }
-
-async function boot(){
-  await loadProfiles();
-  await Promise.all([loadSummary(),loadThreads()]);
-  setInterval(async()=>{
-    if(document.hidden) return;
-    await Promise.all([loadSummary(),loadThreads()]);
-    if(currentPingId){
-      try{await loadChat();}catch(e){}
-    }
-  },15000);
-}
-boot().catch(console.error); window.respondPing=respondPing; window.openThread=openThread;
-</script>
 
   <div class="network-modal" id="networkModal">
     <div class="network-panel">
       <div class="network-head">
-        <div>
-          <div class="section-label" style="margin-bottom:6px">My Network</div>
-          <div class="network-title">Accepted Connections Map</div>
-        </div>
+        <div><div class="network-title">My Network</div><div class="tiny">Accepted Meridian connections</div></div>
         <button class="btn blue" id="closeNetworkBtn" type="button">Close</button>
       </div>
       <div class="network-body">
-        <div class="network-canvas" id="networkCanvas">
-          <svg class="network-svg" id="networkSvg"></svg>
-        </div>
+        <div class="network-canvas" id="networkCanvas"><svg class="network-svg" id="networkSvg"></svg></div>
         <div class="network-list" id="networkList"></div>
       </div>
     </div>
   </div>
 
+  <div class="notice-stack" id="noticeStack"></div>
+
+  <script>
+    const GMID = "{{GMID}}";
+    const $ = id => document.getElementById(id);
+    const _adj=['Blue','Red','Green','Swift','Bold','Wise','Fierce','Calm','Silent','Brave','Mystic','Dark','Light','Stormy','Fiery','Icy','Golden','Silver','Shadow','Thunder','Ancient','Eternal','Vivid','Quiet','Loud','Sharp','Dull','Bright','Dim','Hot','Cold','Wet','Dry','Fast','Slow','Heavy','Strong','Weak','Tall','Short','Long','Brief','Deep','Shallow','Wide','Narrow','Old','New','Young','Aged','Pure','Tainted','Clear','Cloudy','Sunny','Rainy','Windy','Still','Wild','Tame','Free','Bound','Happy','Sad','Angry','Peaceful','Chaotic','Orderly','Elegant','Clumsy','Graceful','Awkward','Smart','Clever','Rich','Poor','Full','Empty','Open','Closed','Locked','Unlocked','Safe','Dangerous','Friendly','Hostile','Warm','Cool','Soft','Hard','Smooth','Rough','Shiny','Matte','Vibrant','Faded','Iron','Velvet'];
+    const _nou=['Dragon','Phoenix','Tiger','Eagle','Wolf','Fox','Bear','Lion','Hawk','Raven','Shark','Panther','Owl','Falcon','Viper','Cobra','Lynx','Stag','Bull','Horse','Snake','Spider','Scorpion','Whale','Dolphin','Fish','Bird','Cat','Dog','Mouse','Bat','Deer','Elk','Moose','Rabbit','Hare','Squirrel','Beaver','Otter','Seal','Walrus','Penguin','Ostrich','Peacock','Parrot','Crow','Dove','Swan','Goose','Duck','Pig','Cow','Sheep','Goat','Donkey','Mule','Camel','Llama','Elephant','Rhino','Hippo','Giraffe','Zebra','Antelope','Buffalo','Bison','Yak','Monkey','Ape','Gorilla','Chimp','Lemur','Sloth','Koala','Kangaroo','Platypus','Turtle','Tortoise','Lizard','Gecko','Iguana','Alligator','Crocodile','Frog','Toad','Salamander','Newt','Butterfly','Moth','Bee','Wasp','Condor','Manta','Narwhal','Puma','Jaguar','Raptor','Coyote','Badger'];
+    let currentProfile = null, inboxItems = [], outboxItems = [], activeItems = [], currentItem = null, chatTimer = null, pollTimer = null, profileCache = {}, activeTab='received';
+    function alias(gmid){ const c=(gmid||'').replace(/[^a-fA-F0-9]/g,'').toLowerCase().padEnd(16,'0'); return _adj[parseInt(c.slice(0,8),16)%_adj.length]+_nou[parseInt(c.slice(8,16),16)%_nou.length]; }
+    function initials(text){ const parts=(text.match(/[A-Z][a-z]*/g)||[text]); return parts.slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
+    function mask(gmid){ const s=(gmid||'').replace(/[^a-fA-F0-9]/g,''); return s.length<8 ? s : s.substring(0,4)+'·'.repeat(Math.max(4,s.length-8))+s.substring(s.length-4); }
+    function fmt(ts){ try{ return new Date(ts).toLocaleString(); } catch { return ts || '—'; } }
+    async function api(url, opts={}){ const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts }); if(!res.ok) throw new Error(await res.text()); return res.json(); }
+    async function getProfile(gmid){ if(profileCache[gmid]) return profileCache[gmid]; const res = await api(`/api/profile/${gmid}`); profileCache[gmid] = res.profile; return res.profile; }
+    let revealGmid = false;
+    function renderMyGmid(){ const el=$('memberGmid'), btn=$('toggleGmidBtn'); if(!el||!btn) return; el.textContent = revealGmid ? GMID : mask(GMID); btn.textContent = revealGmid ? 'Hide' : 'Reveal'; }
+    async function loadProfile(){ const res = await api(`/api/profile/${GMID}`); currentProfile = res.profile; $('memberName').textContent = currentProfile.display_name; $('memberMeta').textContent = `${mask(GMID)} · ${alias(GMID)}`; $('memberAv').textContent = initials(alias(GMID)); renderMyGmid(); renderProfileHome(); }
+    function renderProfileHome(){
+      if(!currentProfile) return;
+      const roles=(currentProfile.roles||[]).slice(0,2).join(' · ');
+      const domains=(currentProfile.domains||[]).slice(0,3);
+      $('profileAlias').textContent = alias(GMID);
+      $('profileHeadline').textContent = `${currentProfile.display_name}${roles ? ' · '+roles : ''}`;
+      $('profileChips').innerHTML = domains.map(d => `<span class="chip">${escapeHtml(d)}</span>`).join('') || '<span class="chip">Meridian Member</span>';
+      $('profileAssets').innerHTML = ((currentProfile.assets||[]).slice(0,3).map(x => `• ${escapeHtml(x)}`).join('<br>')) || 'Complete your profile over time to improve concierge match quality.';
+      $('heroStrength').textContent = currentProfile.strength_score || 0;
+    }
+    async function loadLists(){
+      const inbox = await api(`/api/inbox/${GMID}`);
+      inboxItems = inbox.items || [];
+      try {
+        const outbox = await api(`/api/outbox/${GMID}`);
+        outboxItems = outbox.items || [];
+      } catch(e) { outboxItems = []; }
+      renderList();
+    }
+    function getTabItems(){
+      if(activeTab==='received') return inboxItems.filter(x=>x.status==='pending');
+      if(activeTab==='accepted') return [...inboxItems, ...outboxItems].filter(x=>x.status==='accepted');
+      if(activeTab==='declined') return [...inboxItems, ...outboxItems].filter(x=>x.status==='declined');
+      if(activeTab==='sent') return outboxItems;
+      return inboxItems;
+    }
+    function otherParty(item){
+      const gmid = item.requester_gmid===GMID ? item.target_gmid : item.requester_gmid;
+      return gmid;
+    }
+    function renderList(){
+      const pendingCount = inboxItems.filter(x=>x.status==='pending').length;
+      acceptedConnections = [...inboxItems, ...outboxItems].filter(x=>x.status==='accepted').length;
+      $('heroConnections').textContent = acceptedConnections;
+      $('heroPending').textContent = pendingCount;
+      $('heroSent').textContent = outboxItems.length;
+      activeItems = getTabItems();
+      $('inboxCount').textContent = `${activeItems.length} item${activeItems.length!==1?'s':''}`;
+      const root = $('inboxList');
+      if(!activeItems.length){
+        const label = activeTab==='received' ? 'No pending introductions.' : activeTab==='accepted' ? 'No accepted items.' : activeTab==='declined' ? 'No declined items.' : 'No sent items.';
+        root.innerHTML = `<div class="empty">${label}</div>`;
+        $('detailPane').innerHTML = '<div class="empty">No item selected.</div>';
+        currentItem = null;
+        stopChatPolling();
+        return;
+      }
+      root.innerHTML = '';
+      for(const item of activeItems){
+        const whoGmid = otherParty(item);
+        const who = alias(whoGmid);
+        const div=document.createElement('div');
+        div.className='ping'+(currentItem&&currentItem.id===item.id?' active':'');
+        div.onclick=()=>selectItem(item.id);
+        div.innerHTML=`<div class="row"><div class="alias">${who}</div><div class="status ${item.status}">${item.status}</div></div><div class="ping-meta"><span>Match ${item.score}/100</span><span>·</span><span>${fmt(item.created_at)}</span></div><div class="brief">${escapeHtml(item.request_text)}</div>`;
+        root.appendChild(div);
+      }
+      if(!currentItem || !activeItems.find(x=>x.id===currentItem.id)) selectItem(activeItems[0].id); else highlightActive();
+    }
+    function highlightActive(){ [...document.querySelectorAll('.ping')].forEach((el, idx) => el.classList.toggle('active', activeItems[idx] && currentItem && activeItems[idx].id===currentItem.id)); }
+    async function selectItem(id){ currentItem = activeItems.find(x => x.id === id); highlightActive(); await renderDetail(); }
+    async function renderDetail(){
+      if(!currentItem){ $('detailPane').innerHTML = '<div class="empty">Select an introduction to review the request.</div>'; return; }
+      const requester = await getProfile(currentItem.requester_gmid);
+      const target = await getProfile(currentItem.target_gmid);
+      const whoGmid = otherParty(currentItem);
+      const whoAlias = alias(whoGmid);
+      const isRecipient = currentItem.target_gmid === GMID;
+      const person = whoGmid === currentItem.requester_gmid ? requester : target;
+      const actionButtons = (currentItem.status === 'pending' && isRecipient)
+        ? `<div class="btns"><button class="btn green" onclick="respondCurrent('accepted')">Accept</button><button class="btn red" onclick="respondCurrent('declined')">Decline</button></div>`
+        : `<div class="btns"><button class="btn" disabled style="opacity:.55;cursor:default">${currentItem.status.toUpperCase()}</button></div>`;
+      const chatSection = currentItem.status === 'accepted'
+        ? `<div class="chat-wrap"><div class="detail-block"><div class="detail-label">Secure Channel</div><div class="chat-box" id="chatBox"><div class="tiny">Loading chat…</div></div><div class="composer"><textarea id="chatMessage" placeholder="Write a message…"></textarea><button class="btn gold" onclick="sendChat()">Send Message</button></div></div></div>`
+        : '';
+      $('detailPane').innerHTML = `
+        <div class="detail-head">
+          <div>
+            <div class="detail-title">${whoAlias}</div>
+            <div class="detail-meta">${person.display_name} · ${mask(whoGmid)} · Thread #${currentItem.id}</div>
+          </div>
+          <div class="status ${currentItem.status}">${currentItem.status}</div>
+        </div>
+        <div class="detail-block"><div class="detail-label">Introduction Brief</div><div class="brief">${escapeHtml(currentItem.request_text)}</div></div>
+        <div class="detail-block"><div class="detail-label">Status</div><div class="tiny">Match score: <strong>${currentItem.score}/100</strong><br>Created: ${fmt(currentItem.created_at)}${currentItem.responded_at ? `<br>Responded: ${fmt(currentItem.responded_at)}` : ''}<br>Direction: ${isRecipient ? 'Received' : 'Sent'}</div>${actionButtons}</div>
+        ${chatSection}
+      `;
+      if(currentItem.status === 'accepted'){ await loadChat(); startChatPolling(); } else stopChatPolling();
+    }
+    async function respondCurrent(status){ if(!currentItem) return; await api(`/api/ping/${currentItem.id}/respond`, { method:'POST', body: JSON.stringify({ status }) }); await loadLists(); currentItem = activeItems.find(x => x.id === currentItem.id) || currentItem; await renderDetail(); }
+    async function loadChat(){ if(!currentItem || currentItem.status !== 'accepted') return; const res = await api(`/api/chat/${currentItem.id}`); const box = $('chatBox'); if(!box) return; if(!(res.messages||[]).length){ box.innerHTML = '<div class="tiny">No messages yet. Start the conversation below.</div>'; return; } box.innerHTML = ''; for(const m of res.messages){ const mine = m.sender_gmid === GMID; const who = mine ? 'You' : alias(m.sender_gmid); const msg = document.createElement('div'); msg.className = 'msg' + (mine ? ' me' : ''); msg.innerHTML = `<div class="bubble"><div class="msg-meta">${who} · ${fmt(m.created_at)}</div><div class="msg-text">${escapeHtml(m.message)}</div></div>`; box.appendChild(msg); } box.scrollTop = box.scrollHeight; }
+    async function sendChat(){ const ta = $('chatMessage'); if(!ta || !currentItem) return; const message = ta.value.trim(); if(!message) return; await api(`/api/chat/${currentItem.id}/send`, { method:'POST', body: JSON.stringify({ sender_gmid: GMID, message }) }); ta.value = ''; await loadChat(); }
+    function startChatPolling(){ stopChatPolling(); chatTimer = setInterval(()=>{ if(!document.hidden) loadChat(); }, 8000); }
+    function stopChatPolling(){ if(chatTimer){ clearInterval(chatTimer); chatTimer = null; } }
+    function startListPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer = setInterval(()=>{ if(!document.hidden) loadLists(); }, 20000); }
+    function escapeHtml(v){ return String(v ?? '').replace(/[&<>'"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[s])); }
+    function showNotice(title, subtitle='', tone='gold'){ const stack=$('noticeStack'); if(!stack) return; const card=document.createElement('div'); card.className='notice'+(tone==='error'?' error':''); card.innerHTML=`<div class="notice-head"><span class="notice-dot"></span><span>${tone==='error' ? 'Meridian Notice' : 'Introduction Dispatched'}</span></div><div class="notice-title">${escapeHtml(title)}</div>${subtitle ? `<div class="notice-sub">${escapeHtml(subtitle)}</div>` : ''}`; stack.appendChild(card); setTimeout(()=>{ card.style.opacity='0'; card.style.transform='translateY(8px)'; card.style.transition='all .18s ease'; }, 3200); setTimeout(()=>card.remove(), 3450); }
+    function buildRequestText(profile){
+      const primaryRole = (profile.roles||[])[0] || 'trusted operator';
+      const primaryDomain = (profile.domains||[])[0] || 'strategic delivery';
+      return `Confidential Meridian introduction request: seeking a conversation with this member regarding ${primaryRole} capability in ${primaryDomain}.`;
+    }
+    function togglePingComposer(gmid){
+      const el = document.getElementById(`composer-${gmid}`);
+      if(!el) return;
+      el.style.display = el.style.display === 'block' ? 'none' : 'block';
+    }
+    async function sendMatchPing(gmid, score){
+      const ta = document.getElementById(`request-${gmid}`);
+      if(!ta) return;
+      const request_text = ta.value.trim();
+      if(!request_text){ showNotice('Introduction draft required', 'Add a short confidential note before dispatch.', 'error'); return; }
+      await api('/api/ping', { method:'POST', body: JSON.stringify({ requester_gmid: GMID, target_gmid: gmid, request_text, score }) });
+      ta.value='';
+      const wrap = document.getElementById(`composer-${gmid}`); if(wrap) wrap.style.display='none';
+      await loadLists();
+      showNotice('Introduction dispatched', 'Open recipient inbox to review and accept.');
+    }
+    async function runMatchSearch(){
+      const q = $('matchQuery').value.trim();
+      if(!q) return;
+      const root = $('matchResults');
+      root.innerHTML = '<div class="empty" style="grid-column:1/-1">Searching current member network…</div>';
+      const res = await api('/api/match', { method:'POST', body: JSON.stringify({ requester_gmid: GMID, query: q }) });
+      const items = (res.results||[]);
+      if(!items.length){ root.innerHTML = '<div class="empty" style="grid-column:1/-1">No aligned member matches found for that brief.</div>'; return; }
+      root.innerHTML = items.map(({score, profile}) => `
+        <div class="match-card">
+          <div class="match-top">
+            <div>
+              <div class="match-name">${escapeHtml(alias(profile.gmid))}</div>
+              <div class="match-meta">${escapeHtml(mask(profile.gmid))} · ${escapeHtml((profile.roles||[]).slice(0,2).join(' · ') || 'Meridian Member')}</div>
+            </div>
+            <div class="score-badge">Match ${score}</div>
+          </div>
+          <div class="match-tags">${(profile.domains||[]).slice(0,4).map(x=>`<span class="chip">${escapeHtml(x)}</span>`).join('')}</div>
+          <div class="muted-note" style="margin-top:12px">${escapeHtml((profile.assets_preview||[])[0] || 'Profile available for confidential introduction.')}</div>
+          <div class="match-actions">
+            <button class="btn gold" type="button" onclick="togglePingComposer('${profile.gmid}')">Request Introduction</button>
+            <a class="btn blue" href="/members">Browse More</a>
+          </div>
+          <div class="composer-inline" id="composer-${profile.gmid}">
+            <textarea id="request-${profile.gmid}">${escapeHtml(buildRequestText(profile))}</textarea>
+            <div class="btns"><button class="btn green" type="button" onclick="sendMatchPing('${profile.gmid}', ${score})">Send</button></div>
+          </div>
+        </div>`).join('');
+    }
+    async function openNetwork(){
+      const modal=$('networkModal'), canvas=$('networkCanvas'), svg=$('networkSvg'), list=$('networkList');
+      modal.style.display='flex';
+      const res=await api(`/api/network/${GMID}`);
+      const nodes=res.nodes||[], edges=res.edges||[];
+      svg.innerHTML=''; list.innerHTML=''; canvas.querySelectorAll('.network-node').forEach(n=>n.remove());
+      const w=canvas.clientWidth||700, h=canvas.clientHeight||520, cx=w/2, cy=h/2, radius=Math.max(160, Math.min(240, Math.min(w,h)/2.7));
+      const positions={}; positions[GMID]={x:cx,y:cy};
+      const others=nodes.filter(n=>n.gmid!==GMID);
+      others.forEach((n,i)=>{ const angle=(Math.PI*2*i)/Math.max(1,others.length)-Math.PI/2; positions[n.gmid]={x:cx+Math.cos(angle)*radius,y:cy+Math.sin(angle)*radius}; });
+      edges.forEach(e=>{ const a=positions[GMID], b=positions[e.other_gmid]; if(!a||!b) return; const line=document.createElementNS('http://www.w3.org/2000/svg','line'); line.setAttribute('x1',a.x); line.setAttribute('y1',a.y); line.setAttribute('x2',b.x); line.setAttribute('y2',b.y); line.setAttribute('stroke','rgba(99,172,255,.55)'); line.setAttribute('stroke-width','2'); line.setAttribute('stroke-linecap','round'); svg.appendChild(line); });
+      nodes.forEach(n=>{ const p=positions[n.gmid] || {x:cx,y:cy}; const d=document.createElement('div'); d.className='network-node'+(n.gmid===GMID?' me':''); d.style.left=p.x+'px'; d.style.top=p.y+'px'; d.textContent=n.gmid===GMID ? 'Me' : n.label; canvas.appendChild(d); });
+      if(!edges.length){ list.innerHTML='<div class="empty">No accepted connections yet</div>'; } else { edges.forEach(e=>{ const div=document.createElement('div'); div.className='network-item'; div.innerHTML=`<div class="network-item-name">${e.other_name}</div><div class="network-item-meta">Accepted connection · Thread ${e.ping_id}</div>`; list.appendChild(div);});}
+    }
+    function closeNetwork(){ $('networkModal').style.display='none'; }
+    document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); btn.classList.add('active'); activeTab=btn.dataset.tab; renderList(); }));
+    $('openNetworkBtn').addEventListener('click', openNetwork);
+    $('closeNetworkBtn').addEventListener('click', closeNetwork);
+    $('networkModal').addEventListener('click', e=>{ if(e.target.id==='networkModal') closeNetwork(); });
+    $('toggleGmidBtn').addEventListener('click', ()=>{ revealGmid = !revealGmid; renderMyGmid(); });
+    $('copyGmidBtn').addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(GMID); const btn=$('copyGmidBtn'); const old=btn.textContent; btn.textContent='Copied'; setTimeout(()=>btn.textContent=old,1200);}catch(e){} });
+    $('runMatchBtn').addEventListener('click', runMatchSearch);
+    $('matchQuery').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); runMatchSearch(); }});
+    $('logoutBtn').addEventListener('click', async ()=>{ try { await api('/api/auth/logout', {method:'POST'}); } catch(e) {} window.location.href='/'; });
+    (async function init(){
+      await loadProfile();
+      await loadLists();
+      startListPolling();
+    })().catch(err => { $('inboxList').innerHTML = `<div class="empty">Failed to load inbox.<br><br>${escapeHtml(err.message)}</div>`; $('detailPane').innerHTML = `<div class="empty">Failed to load member console.</div>`; });
+  </script>
 </body>
 </html>

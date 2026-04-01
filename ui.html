@@ -1792,9 +1792,9 @@
 
   <!-- ══ PHASE STEPPER ══ -->
   <nav id="phaseStepper">
-    <div class="phase active" id="phase1" title="Select your acting principal">
+    <div class="phase active" id="phase1" title="Authenticated session">
       <div class="phase-num">1</div>
-      <div class="phase-label">Select Principal</div>
+      <div class="phase-label">Authenticated</div>
     </div>
     <div class="phase-sep">›</div>
     <div class="phase" id="phase2" title="Write and submit a confidential brief">
@@ -1834,12 +1834,12 @@
         <div class="step-callout" id="callout1" style="display:none">
           <div class="step-callout-icon">①</div>
           <div class="step-callout-body">
-            <div class="step-callout-title">Step 1 — Your Principal</div>
+            <div class="step-callout-title">Step 1 — Authenticated Session</div>
             <div class="step-callout-text">You are authenticated as <em>Mike S</em>. Your identity is masked to other
               members — they see only your alias and GMID.</div>
           </div>
         </div>
-        <div class="section-label">Acting Principal</div>
+        <div class="section-label">Authenticated Session</div>
         <div class="principal-badge">
           <div class="principal-avatar">MS</div>
           <div class="principal-info">
@@ -1944,14 +1944,11 @@
     /* ══════════════════════════════
        CREDENTIALS & SESSION
     ══════════════════════════════ */
-    const VALID_USER = 'mike';
-    const VALID_PASS = 'red123';
-    const MIK_DISPLAY = 'Mike S';
-    // Mike S's GMID is deterministic — same seed as main.py uses
-    let MIK_GMID = null; // resolved from API on login
+    let MIK_GMID = null;
+    let currentMember = null;
 
-    function logout() {
-      try { sessionStorage.removeItem('meridian_session'); } catch (e) { }
+    async function logout() {
+      try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) { }
       const ls = $('loginScreen');
       ls.style.display = 'flex'; ls.classList.remove('out');
       $('loginUser').value = '';
@@ -1959,37 +1956,31 @@
       $('loginError').classList.remove('show');
     }
 
-    function doLogin() {
+    async function doLogin() {
       const u = $('loginUser').value.trim().toLowerCase();
       const p = $('loginPass').value;
-      if (u === VALID_USER && p === VALID_PASS) {
+      try {
+        const res = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
         const ls = $('loginScreen');
         ls.classList.add('out');
-        setTimeout(() => { ls.style.display = 'none'; }, 720);
-        try { sessionStorage.setItem('meridian_session', '1'); } catch (e) { }
-        load();
-        // Show onboarding only first time
-        try {
-          if (!localStorage.getItem('meridian_onboard_done')) showOnboard();
-        } catch (e) { }
-      } else {
-        const err = $('loginError'); err.classList.add('show');
+        setTimeout(() => { window.location.href = res.redirect_url || '/me'; }, 520);
+      } catch (e) {
+        const err = $('loginError'); err.textContent = 'Credentials not recognised. Access denied.'; err.classList.add('show');
         const btn = $('loginBtn'); btn.classList.remove('shake');
         void btn.offsetWidth; btn.classList.add('shake');
         setTimeout(() => btn.classList.remove('shake'), 450);
       }
     }
 
-    // Enter key on password field
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       $('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
       $('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginPass').focus(); });
-      $('loginBtn').addEventListener('click', doLogin);
-      // Check existing session
+      $('loginBtn').addEventListener('click', () => { void doLogin(); });
       try {
-        if (sessionStorage.getItem('meridian_session') === '1') {
-          $('loginScreen').style.display = 'none';
-          load();
+        const me = await api('/api/auth/me');
+        if (me.authenticated && me.member) {
+          window.location.href = '/me';
+          return;
         }
       } catch (e) { }
     });
@@ -2098,48 +2089,13 @@
         const db = await api("/api/debug/db");
         $("stat-profiles").textContent = db.profiles ?? "—";
         $("stat-pings").textContent = db.pings ?? "—";
-
-        const p = await api("/api/profiles?limit=250");
-        profiles = p.profiles || [];
-
-        // Find Mike S — match by display_name containing "Mike S"
-        const mik = profiles.find(x => !x.is_system && x.display_name === MIK_DISPLAY);
-        if (mik) {
-          MIK_GMID = mik.gmid;
-          $("acting").value = MIK_GMID;
-          $("mikGmid").textContent = maskGMID(MIK_GMID);
-          setPhase(2);
-        } else {
-          // Mike S doesn't exist yet — auto-create
-          const res = await api("/api/profile/create", {
-            method: "POST",
-            body: JSON.stringify({
-              display_name: MIK_DISPLAY,
-              domains: ["Private Equity", "Financial Services", "Executive Search"],
-              roles: ["Principal", "Managing Partner"],
-              experience_years: 18,
-              networks: ["Global LP network", "C-suite operator channel"],
-              political_social: ["Discretion-first collaboration"],
-              assets: [
-                "20+ years executing discreet executive mandates",
-                "Deep LP and sovereign fund relationships",
-                "Multi-sector board and operating network",
-                "Cross-border deal origination track record",
-                "Non-attributable introduction protocol",
-                "Known for zero-ego, outcome-first execution"
-              ],
-              values: ["Discretion", "Reciprocity", "Outcome rigor"],
-              attributes: { engagement_type: "advisory", confidentiality: "non-attribution", notes: "Principal account — Mike S" }
-            })
-          });
-          MIK_GMID = res.gmid;
-          $("acting").value = MIK_GMID;
-          $("mikGmid").textContent = maskGMID(MIK_GMID);
-          setPhase(2);
-          // Refresh stats
-          const db2 = await api("/api/debug/db");
-          $("stat-profiles").textContent = db2.profiles ?? "—";
-        }
+        const me = await api('/api/auth/me');
+        if (!me.authenticated || !me.member) return;
+        currentMember = me.member;
+        MIK_GMID = currentMember.gmid;
+        $("acting").value = MIK_GMID;
+        $("mikGmid").textContent = maskGMID(MIK_GMID);
+        setPhase(2);
       } catch (e) { console.error(e); }
     }
 

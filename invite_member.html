@@ -1,0 +1,25 @@
+
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Meridian — Invite New Member</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}:root{--obsidian:#060608;--panel:#0E0E15;--surface:#13131E;--rim:rgba(255,255,255,.06);--gold:#C9A84C;--platinum:#A8AECC;--snow:#E9EAF4}
+body{font-family:'Montserrat',sans-serif;background:var(--obsidian);color:var(--snow)}.wrap{max-width:900px;margin:0 auto;padding:34px 28px}.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.title{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:300}.nav{display:flex;gap:10px}.nav a{padding:10px 14px;border:1px solid var(--rim);border-radius:999px;text-decoration:none;color:var(--platinum);font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}.card{border:1px solid var(--rim);border-radius:10px;background:var(--panel);padding:22px}.field{margin-bottom:14px}.field label{display:block;font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum);opacity:.7;margin-bottom:6px}.field input,.field textarea{width:100%;padding:12px 14px;border-radius:8px;border:1px solid var(--rim);background:var(--surface);color:var(--snow);font-family:'Montserrat',sans-serif}.field textarea{min-height:120px}.btn{padding:12px 16px;border-radius:8px;border:1px solid rgba(201,168,76,.35);background:transparent;color:var(--gold);cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}.out{margin-top:16px;padding:14px;border:1px solid rgba(99,172,255,.22);border-radius:8px;background:rgba(99,172,255,.04);white-space:pre-wrap;color:#dbeaff}
+</style></head>
+<body><div class="wrap"><div class="head"><div class="title">Invite New Member</div><div class="nav"><a href="/">Home</a><a href="/rankings">Rankings</a></div></div><div class="card"><div style="margin-bottom:14px;color:rgba(168,174,204,.8);line-height:1.8">This flow is only for people not already in Meridian. It creates a join invitation sponsored by a current member and reference GMID.</div><div class="field"><label>Your GMID</label><input id="invitedBy" placeholder="Sponsor GMID"></div><div class="field"><label>Reference GMID</label><input id="referenceGmid" placeholder="Reference member GMID"></div><div class="field"><label>Candidate Full Name</label><input id="candidateName"></div><div class="field"><label>Candidate Email</label><input id="candidateEmail" type="email"></div><div class="field"><label>Invitation Note</label><textarea id="inviteNote" placeholder="Why this person should join Meridian"></textarea></div><button class="btn" id="sendInvite">Create Join Invitation</button><div class="out" id="out" style="display:none"></div></div></div>
+<script>
+async function api(url, opts={}){const r=await fetch(url,{headers:{'Content-Type':'application/json'},...opts});const data=await r.json();if(!r.ok) throw new Error(data.detail||JSON.stringify(data));return data;}
+document.getElementById('sendInvite').addEventListener('click', async ()=>{const body={invited_by_gmid: document.getElementById('invitedBy').value.trim(),reference_gmid: document.getElementById('referenceGmid').value.trim(),candidate_name: document.getElementById('candidateName').value.trim(),candidate_email: document.getElementById('candidateEmail').value.trim(),invite_note: document.getElementById('inviteNote').value.trim()};const out=document.getElementById('out');try{const res=await api('/api/invitations/create',{method:'POST',body:JSON.stringify(body)});out.style.display='block';out.textContent=`Invitation created.
+
+Invite link:
+${res.invite_link}
+
+Suggested email subject:
+${res.email_subject}
+
+Suggested email body:
+${res.email_body}`;}catch(e){out.style.display='block';out.textContent=`Error: ${e.message}`;}});
+</script></body></html>

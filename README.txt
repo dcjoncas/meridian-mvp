@@ -1,20 +1,28 @@
-Meridian loading + polling fix
+Meridian production member fix
 
-What was wrong:
-- the network modal close button listener was attaching before that element existed
-- that could break the member page JavaScript and make the page appear stuck / empty
+What this package fixes now:
+- Inbox now has tabs for Inbox / Accepted / Declined / Sent
+- Member console can see accepted and declined items again
+- Added My Network button and modal graph
+- Reduced aggressive polling:
+  - list refresh every 20 seconds only while tab visible
+  - chat refresh every 8 seconds only while tab visible and accepted thread open
+- Production mode on home:
+  - removed Select Principal wording
+  - keeps Mike as the authenticated session
+  - added Invite New Member button
+- Full Postgres backend included
+- Preserves your current approved UI look and feel
 
-What is fixed:
-- safe event binding for My Network modal
-- page loads correctly again
-- polling reduced from every 5 seconds to every 15 seconds
-- polling now pauses while the tab is hidden
+Replace all files in your project root with these.
+Then run:
+$env:DATABASE_URL="postgresql://postgres:postgres@localhost:5432/meridian"
+$env:APP_BASE_URL="http://127.0.0.1:8000"
+pip install -r requirements.txt
+uvicorn main:app --reload
 
-Why you kept seeing repeated GET calls:
-- that was the auto-refresh polling in member.html
-- inbox / outbox / profile summary were refreshing on an interval by design
 
-Replace:
-- member.html
-
-You can keep the rest of your current working files.
+Demo member login convention:
+- Mike account: mike / red123
+- Seeded demo members: member001 through member100
+- Seeded demo member password: red123
