@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Meridian — Group Rankings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--obsidian:#060608;--panel:#0E0E15;--rim:rgba(255,255,255,.06);--gold:#C9A84C;--gold-light:#E4C778;--blue:#63acff;--blue-soft:#8cc4ff;--platinum:#A8AECC;--snow:#E9EAF4}
+body{font-family:'Montserrat',sans-serif;background:var(--obsidian);color:var(--snow)}
+.masthead{display:flex;justify-content:space-between;align-items:center;padding:26px 40px;border-bottom:1px solid var(--rim)}
+.title{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:300;letter-spacing:.08em}
+.nav{display:flex;gap:10px}.nav a{padding:10px 14px;border:1px solid var(--rim);border-radius:999px;text-decoration:none;color:var(--platinum);font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}
+.nav a.gold{border-color:rgba(201,168,76,.35);color:var(--gold)} .nav a.blue{border-color:rgba(99,172,255,.35);color:var(--blue)}
+.wrap{max-width:1220px;margin:0 auto;padding:28px 30px}.sub{color:rgba(168,174,204,.72);line-height:1.8;margin-bottom:18px}
+.card{border:1px solid var(--rim);border-radius:10px;background:var(--panel);overflow:hidden}
+table{width:100%;border-collapse:collapse} th,td{padding:14px 12px;border-bottom:1px solid rgba(255,255,255,.04);text-align:left}
+th{font-size:8px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--platinum)} td{font-size:13px}
+.rank{font-family:'Cormorant Garamond',serif;font-size:30px;color:var(--gold-light)} .score{color:var(--blue-soft);font-weight:700}
+</style></head>
+<body><div class="masthead"><div class="title">Group Rankings</div><div class="nav"><a href="/" class="gold">Home</a><a href="/" class="gold">Exchange</a><a href="/rankings" class="blue">Rankings</a></div></div><div class="wrap"><div class="sub">Scoring Engine V2 blends profile strength, accepted connections, and response quality. More complete profiles rank higher. Stronger responders rise faster.</div><div class="card"><table><thead><tr><th>Rank</th><th>Name</th><th>Composite</th><th>Strength</th><th>Connections</th><th>Response Rate</th><th>Top Domains</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+<script>
+async function api(u){const r=await fetch(u); return r.json();}
+async function load(){const res=await api('/api/rankings?limit=60'); const rows=document.getElementById('rows'); rows.innerHTML=''; (res.items||[]).forEach(x=>{const tr=document.createElement('tr'); tr.innerHTML=`<td class="rank">#${x.rank}</td><td>${x.display_name}</td><td class="score">${x.composite_score}</td><td>${x.strength_score}</td><td>${x.connections}</td><td>${Math.round((x.response_rate||0)*100)}%</td><td>${(x.domains||[]).slice(0,3).join(', ')}</td>`; rows.appendChild(tr);});}
+load();
+</script></body></html>

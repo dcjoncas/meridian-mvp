@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -7,105 +6,250 @@
   <title>Meridian — Member Channel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{--obsidian:#060608;--deep:#0A0A0F;--panel:#0E0E15;--surface:#13131E;--rim:rgba(255,255,255,.06);--rim-hover:rgba(255,255,255,.12);--gold:#C9A84C;--gold-light:#E4C778;--platinum:#A8AECC;--snow:#E9EAF4;--green:#4ADE80;--red:#F87171}
+    :root{
+      --obsidian:#060608;--deep:#0A0A0F;--panel:#0E0E15;--surface:#13131E;--rim:rgba(255,255,255,.06);--rim-hover:rgba(255,255,255,.12);
+      --gold:#C9A84C;--gold-light:#E4C778;--blue:#5ea8ff;--blue-soft:#8cc4ff;--platinum:#A8AECC;--snow:#E9EAF4;--green:#4ADE80;--red:#F87171;--ink:#111217;
+      --chat1:rgba(234,223,175,.96);--chat2:rgba(226,210,149,.93);
+    }
     body{font-family:'Montserrat',sans-serif;background:var(--obsidian);color:var(--snow);overflow-x:hidden}
     body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E")}
     body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:
-      radial-gradient(ellipse 55% 35% at 15% 12%, rgba(201,168,76,.07) 0%, transparent 70%),
-      radial-gradient(ellipse 45% 40% at 90% 5%, rgba(120,100,200,.06) 0%, transparent 65%),
-      radial-gradient(ellipse 60% 50% at 55% 95%, rgba(201,168,76,.04) 0%, transparent 70%)}
-    .masthead{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:28px 48px 22px;border-bottom:1px solid var(--rim)}
-    .wordmark{display:flex;align-items:baseline;gap:14px}.wordmark-name{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:26px;letter-spacing:.22em;text-transform:uppercase;color:var(--snow)}
-    .wordmark-rule{width:1px;height:22px;background:var(--gold);opacity:.5;transform:rotate(15deg)}
-    .wordmark-sub{font-size:9px;font-weight:500;letter-spacing:.32em;text-transform:uppercase;color:var(--gold);opacity:.85}
-    .masthead-meta{display:flex;align-items:center;gap:18px}.masthead-stat{text-align:right}.masthead-stat-val{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--gold-light)}.masthead-stat-lbl{font-size:9px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum)}
-    .badge{display:flex;align-items:center;gap:10px;border:1px solid var(--rim);border-radius:4px;padding:7px 14px;background:var(--surface)}
-    .badge-av{width:28px;height:28px;border-radius:50%;border:1px solid rgba(201,168,76,.25);background:var(--deep);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;color:var(--gold)}
-    .badge-name{font-family:'Cormorant Garamond',serif;font-size:16px}.badge-sub{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);opacity:.6}
-    .layout{position:relative;z-index:5;display:grid;grid-template-columns:420px 1fr;min-height:calc(100vh - 77px)}
-    .left{border-right:1px solid var(--rim);padding:36px 32px;background:rgba(10,10,16,.55);display:flex;flex-direction:column;gap:20px}
-    .right{padding:36px 40px;display:flex;flex-direction:column;gap:20px}
-    .section-label{font-size:8.5px;font-weight:600;letter-spacing:.38em;text-transform:uppercase;color:var(--gold);margin-bottom:12px;display:flex;align-items:center;gap:10px}
-    .section-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--gold),transparent);opacity:.3}
-    .card{border:1px solid var(--rim);border-radius:6px;background:var(--panel);padding:18px}
-    .identity{display:flex;align-items:center;gap:14px;border:1px solid rgba(201,168,76,.2);border-radius:6px;padding:12px 14px;background:rgba(201,168,76,.03)}
-    .identity-av{width:40px;height:40px;border-radius:50%;border:1px solid rgba(201,168,76,.3);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;color:var(--gold)}
-    .identity-name{font-family:'Cormorant Garamond',serif;font-size:20px}.identity-gmid{font-size:9px;letter-spacing:.14em;color:var(--platinum);opacity:.45}
-    .state-pill{display:inline-flex;align-items:center;gap:8px;font-size:8px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;padding:5px 10px;border-radius:999px;border:1px solid var(--rim);background:rgba(255,255,255,.03)}
-    .state-pill.live{color:var(--green);border-color:rgba(74,222,128,.25)}.state-pill.pending{color:var(--gold);border-color:rgba(201,168,76,.24)}.state-pill.declined{color:var(--red);border-color:rgba(248,113,113,.26)}
-    .hint{font-family:'Cormorant Garamond',serif;font-size:14px;font-style:italic;color:rgba(168,174,204,.55);line-height:1.6}
+      radial-gradient(ellipse 55% 35% at 12% 8%, rgba(201,168,76,.08) 0%, transparent 70%),
+      radial-gradient(ellipse 44% 36% at 92% 8%, rgba(94,168,255,.06) 0%, transparent 65%),
+      radial-gradient(ellipse 60% 55% at 58% 96%, rgba(201,168,76,.04) 0%, transparent 72%)}
+    .masthead{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:26px 42px 20px;border-bottom:1px solid var(--rim)}
+    .wordmark{display:flex;align-items:baseline;gap:14px}
+    .wordmark-name{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;letter-spacing:.22em;text-transform:uppercase}
+    .wordmark-rule{width:1px;height:22px;background:var(--gold);opacity:.45;transform:rotate(15deg)}
+    .wordmark-sub{font-size:9px;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--gold)}
+    .nav{display:flex;gap:10px;flex-wrap:wrap}
+    .nav a{padding:10px 14px;border:1px solid var(--rim);border-radius:999px;text-decoration:none;color:var(--platinum);font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}
+    .nav a.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}
+    .nav a.blue{border-color:rgba(94,168,255,.35);color:var(--blue)}
+    .layout{position:relative;z-index:5;display:grid;grid-template-columns:420px 1fr;min-height:calc(100vh - 78px)}
+    .left{border-right:1px solid var(--rim);padding:32px;display:flex;flex-direction:column;gap:18px;background:rgba(10,10,16,.56)}
+    .right{padding:32px 36px;display:flex;flex-direction:column;gap:20px}
+    .card{border:1px solid var(--rim);border-radius:8px;background:var(--panel);padding:18px}
+    .section-label{display:flex;align-items:center;gap:10px;font-size:8px;font-weight:700;letter-spacing:.34em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+    .section-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--gold),transparent);opacity:.28}
+    .identity{display:flex;align-items:center;gap:14px;border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:14px;background:rgba(201,168,76,.03)}
+    .identity-av{width:42px;height:42px;border-radius:50%;border:1px solid rgba(201,168,76,.28);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold)}
+    .identity-name{font-family:'Cormorant Garamond',serif;font-size:26px}
+    .identity-gmid{font-size:9px;letter-spacing:.16em;color:var(--platinum);opacity:.48}
+    .subtle{font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:rgba(168,174,204,.6);line-height:1.7}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .mini{border:1px solid var(--rim);border-radius:8px;padding:12px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01))}
+    .mini.blue{border-color:rgba(94,168,255,.18);background:linear-gradient(180deg,rgba(94,168,255,.05),rgba(255,255,255,.015))}
+    .mini-val{font-family:'Cormorant Garamond',serif;font-size:30px;line-height:1;color:var(--gold-light)}
+    .mini.blue .mini-val{color:var(--blue-soft)}
+    .mini-lbl{margin-top:6px;font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum);opacity:.65}
+    .field{margin-bottom:12px}
+    .field label{display:block;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum);opacity:.65;margin-bottom:6px}
+    .field input,.field textarea,.field select{width:100%;background:var(--surface);border:1px solid var(--rim);color:var(--snow);border-radius:8px;padding:12px 14px;font-family:'Montserrat',sans-serif}
+    .field textarea{min-height:78px;resize:vertical}
+    .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:rgba(201,168,76,.42);box-shadow:0 0 0 3px rgba(201,168,76,.08)}
+    .field.blue input:focus,.field.blue textarea:focus,.field.blue select:focus{border-color:rgba(94,168,255,.42);box-shadow:0 0 0 3px rgba(94,168,255,.08)}
     .btn-row{display:flex;gap:10px;flex-wrap:wrap}
-    .btn{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:12px 16px;border-radius:4px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:8.5px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
-    .btn:hover{border-color:var(--rim-hover);color:var(--snow);background:rgba(255,255,255,.03)}.btn.gold{border-color:rgba(201,168,76,.35);color:var(--gold);background:rgba(201,168,76,.04)}.btn.green{border-color:rgba(74,222,128,.35);color:var(--green);background:rgba(74,222,128,.05)}.btn.red{border-color:rgba(248,113,113,.35);color:var(--red);background:rgba(248,113,113,.05)}
+    .btn{padding:12px 16px;border-radius:8px;border:1px solid var(--rim);background:transparent;color:var(--platinum);cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}
+    .btn.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}
+    .btn.blue{border-color:rgba(94,168,255,.35);color:var(--blue)}
+    .btn.green{border-color:rgba(74,222,128,.3);color:var(--green)}
+    .btn.red{border-color:rgba(248,113,113,.3);color:var(--red)}
+    .btn:hover{color:var(--snow);border-color:var(--rim-hover);background:rgba(255,255,255,.03)}
     .tabs{display:flex;gap:10px;flex-wrap:wrap}
-    .tab{padding:10px 14px;border:1px solid var(--rim);border-radius:999px;background:transparent;color:var(--platinum);font-size:8px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;cursor:pointer}
+    .tab{padding:10px 14px;border:1px solid var(--rim);background:transparent;border-radius:999px;color:var(--platinum);font-size:8px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;cursor:pointer}
     .tab.active{border-color:rgba(201,168,76,.38);color:var(--gold);background:rgba(201,168,76,.05)}
-    .list{display:flex;flex-direction:column;gap:12px}.intro{border:1px solid var(--rim);border-radius:6px;background:var(--panel);padding:16px}
-    .intro-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.intro-name{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--snow)}.intro-meta{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum);opacity:.6}.intro-brief{margin-top:12px;color:rgba(233,234,244,.82);font-size:13px;line-height:1.7}.intro-actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
-    .empty{padding:28px;border:1px solid var(--rim);border-radius:6px;background:var(--panel);text-align:center;color:rgba(168,174,204,.45);font-family:'Cormorant Garamond',serif;font-size:18px}
-    .chat-wrap{display:flex;flex-direction:column;gap:14px;height:100%}.chat-box{flex:1;min-height:360px;border:1px solid var(--rim);border-radius:6px;background:var(--panel);padding:16px;overflow:auto;display:flex;flex-direction:column;gap:10px}
-    .msg{max-width:72%;padding:12px 14px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--rim)}.msg.me{align-self:flex-end;background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.2)}.msg-meta{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--platinum);opacity:.6;margin-bottom:6px}.msg-body{font-size:13px;line-height:1.65;color:var(--snow)}
-    .compose{display:flex;gap:10px}.compose textarea{flex:1;min-height:90px;background:var(--surface);border:1px solid var(--rim);color:var(--snow);border-radius:6px;padding:14px;font-family:'Montserrat',sans-serif}.compose textarea:focus{outline:none;border-color:rgba(201,168,76,.45);box-shadow:0 0 0 3px rgba(201,168,76,.06)}
-    .small{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:rgba(168,174,204,.45)}
-    @media(max-width:900px){.layout{grid-template-columns:1fr}.left{border-right:none;border-bottom:1px solid var(--rim)}.masthead{padding:20px 24px}.right{padding:28px 24px}}
+    .list{display:flex;flex-direction:column;gap:12px}
+    .intro{border:1px solid var(--rim);border-radius:8px;background:var(--panel);padding:16px}
+    .intro-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .intro-name{font-family:'Cormorant Garamond',serif;font-size:24px}
+    .intro-meta{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum);opacity:.62;margin-top:4px}
+    .intro-brief{margin-top:12px;color:rgba(233,234,244,.85);line-height:1.75}
+    .intro-actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+    .state-pill{display:inline-flex;align-items:center;padding:6px 11px;border-radius:999px;border:1px solid var(--rim);font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
+    .state-pill.live{color:var(--green);border-color:rgba(74,222,128,.28)}
+    .state-pill.pending{color:var(--gold);border-color:rgba(201,168,76,.28)}
+    .state-pill.declined{color:var(--red);border-color:rgba(248,113,113,.28)}
+    .chat-wrap{display:flex;flex-direction:column;gap:14px}
+    .chat-box{min-height:360px;border:1px solid rgba(201,168,76,.26);border-radius:12px;padding:18px;background:linear-gradient(180deg,var(--chat1),var(--chat2));display:flex;flex-direction:column;gap:10px;overflow:auto}
+    .msg{max-width:74%;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.07)}
+    .msg.me{align-self:flex-end;background:rgba(17,18,23,.9);border-color:rgba(17,18,23,.92)}
+    .msg.me .msg-meta,.msg.me .msg-body{color:#f1e5bb}
+    .msg:not(.me) .msg-meta{color:rgba(17,18,23,.6)}
+    .msg:not(.me) .msg-body{color:var(--ink)}
+    .msg-meta{font-size:8px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:6px}
+    .msg-body{font-size:13px;line-height:1.65}
+    .compose{display:flex;gap:10px}
+    .compose textarea{flex:1;min-height:96px;background:rgba(235,225,181,.88);border:1px solid rgba(201,168,76,.32);color:var(--ink);border-radius:10px;padding:14px;font-family:'Montserrat',sans-serif}
+    .compose textarea:focus{outline:none;border-color:rgba(201,168,76,.62);box-shadow:0 0 0 3px rgba(201,168,76,.12)}
+    .small{font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:rgba(168,174,204,.45)}
+    .success{margin-top:8px;font-size:11px;color:var(--green)}
+    .empty{padding:36px;border:1px solid var(--rim);border-radius:8px;background:var(--panel);text-align:center;color:rgba(168,174,204,.45);font-family:'Cormorant Garamond',serif;font-size:20px}
+    
+    .network-modal{position:fixed;inset:0;background:rgba(3,4,8,.72);backdrop-filter:blur(4px);z-index:999;display:none;align-items:center;justify-content:center;padding:24px}
+    .network-panel{width:min(1100px,96vw);height:min(760px,92vh);background:linear-gradient(180deg,rgba(14,14,21,.98),rgba(10,10,15,.98));border:1px solid rgba(94,168,255,.22);border-radius:14px;box-shadow:0 20px 80px rgba(0,0,0,.45);display:grid;grid-template-rows:auto 1fr}
+    .network-head{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--rim)}
+    .network-title{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--snow)}
+    .network-body{padding:18px;display:grid;grid-template-columns:1.3fr .9fr;gap:18px;min-height:0}
+    .network-canvas{position:relative;border:1px solid var(--rim);border-radius:12px;background:
+      radial-gradient(ellipse 45% 35% at 50% 50%, rgba(94,168,255,.06) 0%, transparent 65%),
+      linear-gradient(180deg, rgba(255,255,255,.01), rgba(255,255,255,.0));
+      overflow:hidden;min-height:420px}
+    .network-svg{position:absolute;inset:0;width:100%;height:100%}
+    .network-node{position:absolute;transform:translate(-50%,-50%);min-width:120px;max-width:180px;padding:10px 12px;border-radius:999px;border:1px solid rgba(201,168,76,.22);background:rgba(14,14,21,.94);text-align:center;font-size:11px;letter-spacing:.06em;color:var(--snow);box-shadow:0 6px 18px rgba(0,0,0,.25)}
+    .network-node.me{border-color:rgba(201,168,76,.42);background:rgba(201,168,76,.08);color:var(--gold-light)}
+    .network-list{border:1px solid var(--rim);border-radius:12px;background:rgba(255,255,255,.015);padding:14px;overflow:auto}
+    .network-item{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,.04)}
+    .network-item:last-child{border-bottom:none}
+    .network-item-name{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--snow)}
+    .network-item-meta{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--platinum);opacity:.62;margin-top:4px}
+
+    @media(max-width:980px){.layout{grid-template-columns:1fr}.left{border-right:none;border-bottom:1px solid var(--rim)}.stats{grid-template-columns:1fr}.masthead{padding:22px 24px}.right,.left{padding:24px}}
   </style>
 </head>
 <body>
-<header class="masthead">
-  <div class="wordmark"><div class="wordmark-name">Meridian</div><div class="wordmark-rule"></div><div class="wordmark-sub">Member Channel</div></div>
-  <div class="masthead-meta">
-    <div class="masthead-stat"><div class="masthead-stat-val" id="inboxCount">0</div><div class="masthead-stat-lbl">Received</div></div>
-    <div class="masthead-stat"><div class="masthead-stat-val" id="outboxCount">0</div><div class="masthead-stat-lbl">Sent</div></div>
-    <div class="masthead-stat"><div class="masthead-stat-val" id="acceptedCount">0</div><div class="masthead-stat-lbl">Accepted</div></div>
-    <div class="badge"><div class="badge-av" id="badgeAv">??</div><div><div class="badge-name" id="badgeName">Member</div><div class="badge-sub">Multi-Thread View</div></div></div>
+  <header class="masthead">
+    <div class="wordmark"><div class="wordmark-name">Meridian</div><div class="wordmark-rule"></div><div class="wordmark-sub">Member Channel</div></div>
+    <div class="nav"><a href="/" class="gold">Home</a><a href="/" class="gold">Exchange</a><a href="/rankings" class="blue">Group Rankings</a><button class="btn blue" id="openNetworkBtn" type="button">My Network</button></div>
+  </header>
+  <div class="layout">
+    <aside class="left">
+      <div class="card"><div class="section-label">Current Member</div><div class="identity"><div class="identity-av" id="currentAv">??</div><div><div class="identity-name" id="currentName">Loading…</div><div class="identity-gmid" id="currentGmid">{{GMID}}</div></div></div></div>
+      <div class="card"><div class="section-label">Connection Summary</div><div class="stats"><div class="mini"><div class="mini-val" id="sumConnections">0</div><div class="mini-lbl">Total Connections</div></div><div class="mini blue"><div class="mini-val" id="sumRank">—</div><div class="mini-lbl">General Rank</div></div><div class="mini"><div class="mini-val" id="sumStrength">—</div><div class="mini-lbl">Profile Strength</div></div></div><div class="subtle" style="margin-top:12px">Your general rank compares your profile strength against all profiles. More complete profile data moves you up.</div></div>
+      <div class="card"><div class="section-label">Send Invitation</div><div class="field blue"><label>Target Member</label><select id="inviteTarget"></select></div><div class="field"><label>Request Brief</label><textarea id="inviteText" placeholder="Describe the request you want to send…"></textarea></div><div class="btn-row"><button class="btn gold" id="sendInviteBtn">Send Invitation</button></div><div id="inviteStatus" class="success"></div></div>
+      <div class="card"><div class="section-label">Add To My Profile</div><div class="field blue"><label>Domains</label><input id="pfDomains" placeholder="Comma separated"></div><div class="field"><label>Roles</label><input id="pfRoles" placeholder="Comma separated"></div><div class="field blue"><label>Networks</label><input id="pfNetworks" placeholder="Comma separated"></div><div class="field"><label>Values</label><input id="pfValues" placeholder="Comma separated"></div><div class="field blue"><label>Years Experience</label><input id="pfYears" type="number" min="0" step="1"></div><div class="field"><label>Assets / Wins</label><textarea id="pfAssets" placeholder="Comma separated wins, credentials, outcomes"></textarea></div><div class="field blue"><label>Load Documents</label><input id="pfDoc" type="file" accept=".pdf,.docx,.txt,.md,.html,.htm"></div><div class="btn-row"><button class="btn gold" id="saveProfileBtn">Update Profile</button><button class="btn blue" id="ingestDocBtn">Parse Document</button></div><div id="profileStatus" class="success"></div></div>
+      <div class="card"><div class="section-label">Navigation</div><div class="btn-row"><a class="btn gold" href="/">Back To Exchange</a><a class="btn blue" href="/rankings">Open Group Rankings</a><button class="btn gold" id="refreshBtn">Refresh</button></div></div>
+    </aside>
+    <main class="right">
+      <div><div class="section-label">Introductions & Connections</div><div class="tabs"><button class="tab active" data-tab="received">Received</button><button class="tab" data-tab="sent">Sent</button><button class="tab" data-tab="accepted">Accepted</button><button class="tab" data-tab="declined">Declined</button></div></div>
+      <div><div class="section-label">Thread List</div><div id="introList" class="list"></div></div>
+      <div><div class="section-label">Secure Chat</div><div class="chat-wrap"><div id="chatState" class="small">No accepted thread selected yet.</div><div id="chatBox" class="chat-box"><div class="empty" style="background:transparent;border-color:rgba(17,18,23,.08);color:rgba(17,18,23,.45)">Choose an accepted connection to begin</div></div><div class="compose"><textarea id="msgInput" placeholder="Write privately into the secure channel…" disabled></textarea><button class="btn gold" id="sendBtn" disabled>Send</button></div></div></div>
+    </main>
   </div>
-</header>
-<div class="layout">
-  <aside class="left">
-    <div><div class="section-label">Current Member</div><div class="identity"><div class="identity-av" id="currentAv">??</div><div><div class="identity-name" id="currentName">Loading…</div><div class="identity-gmid" id="currentGmid">{{GMID}}</div></div></div></div>
-    <div class="card"><div class="section-label">Channel Status</div><div class="btn-row" style="margin-bottom:12px"><button class="btn gold" id="refreshBtn">Refresh</button><span class="state-pill live">Live</span></div><div class="hint">Each member can now see received requests, sent requests, accepted connections, and open the chat thread they want.</div></div>
-    <div class="btn-row"><a class="btn" href="/">← Back to Exchange</a><a class="btn" href="/alias" target="_blank">Alias Registry</a></div>
-    <div class="card"><div class="section-label">Thread View</div><div class="hint">Use the tabs to move between received, sent, and accepted threads. Both Mike and the contacted member can choose which accepted connection to open.</div></div>
-  </aside>
-  <main class="right">
-    <div><div class="section-label">Introductions & Connections</div><div class="tabs"><button class="tab active" data-tab="received">Received</button><button class="tab" data-tab="sent">Sent</button><button class="tab" data-tab="accepted">Accepted</button></div></div>
-    <div><div class="section-label">Thread List</div><div id="introList" class="list"></div></div>
-    <div><div class="section-label">Secure Chat</div><div class="chat-wrap"><div id="chatState" class="small">No accepted thread selected yet.</div><div id="chatBox" class="chat-box"><div class="empty">Choose an accepted connection to begin</div></div><div class="compose"><textarea id="msgInput" placeholder="Write privately into the secure channel…" disabled></textarea><button class="btn gold" id="sendBtn" disabled>Send</button></div></div></div>
-  </main>
-</div>
 <script>
-const CURRENT_GMID="{{GMID}}";
-let currentProfile=null,currentPingId=null,profiles=[],receivedItems=[],sentItems=[],activeTab="received";
+const CURRENT_GMID="{{GMID}}"; let currentPingId=null,profiles=[],receivedItems=[],sentItems=[],activeTab="received";
 const $=id=>document.getElementById(id);
-async function api(url,opts={}){const res=await fetch(url,{headers:{"Content-Type":"application/json"},...opts});if(!res.ok)throw new Error(await res.text());return res.json();}
+async function j(url,opts={}){const res=await fetch(url,opts); if(!res.ok) throw new Error(await res.text()); return res.json();}
 const ADJ=['Blue','Red','Green','Swift','Bold','Wise','Fierce','Calm','Silent','Brave','Mystic','Dark','Light','Stormy','Fiery','Icy','Golden','Silver','Shadow','Thunder','Ancient','Eternal','Vivid','Quiet','Loud','Sharp','Dull','Bright','Dim','Hot','Cold','Wet','Dry','Fast','Slow','Heavy','Strong','Weak','Tall','Short','Long','Brief','Deep','Shallow','Wide','Narrow','Old','New','Young','Aged','Pure','Tainted','Clear','Cloudy','Sunny','Rainy','Windy','Still','Wild','Tame','Free','Bound','Happy','Sad','Angry','Peaceful','Chaotic','Orderly','Elegant','Clumsy','Graceful','Awkward','Smart','Clever','Rich','Poor','Full','Empty','Open','Closed','Locked','Unlocked','Safe','Dangerous','Friendly','Hostile','Warm','Cool','Soft','Hard','Smooth','Rough','Shiny','Matte','Vibrant','Faded','Iron','Velvet'];
 const NOU=['Dragon','Phoenix','Tiger','Eagle','Wolf','Fox','Bear','Lion','Hawk','Raven','Shark','Panther','Owl','Falcon','Viper','Cobra','Lynx','Stag','Bull','Horse','Snake','Spider','Scorpion','Whale','Dolphin','Fish','Bird','Cat','Dog','Mouse','Bat','Deer','Elk','Moose','Rabbit','Hare','Squirrel','Beaver','Otter','Seal','Walrus','Penguin','Ostrich','Peacock','Parrot','Crow','Dove','Swan','Goose','Duck','Pig','Cow','Sheep','Goat','Donkey','Mule','Camel','Llama','Elephant','Rhino','Hippo','Giraffe','Zebra','Antelope','Buffalo','Bison','Yak','Monkey','Ape','Gorilla','Chimp','Lemur','Sloth','Koala','Kangaroo','Platypus','Turtle','Tortoise','Lizard','Gecko','Iguana','Alligator','Crocodile','Frog','Toad','Salamander','Newt','Butterfly','Moth','Bee','Wasp','Condor','Manta','Narwhal','Puma','Jaguar','Raptor','Coyote','Badger'];
-function gmidToAlias(gmid){const c=(gmid||'').replace(/[^a-fA-F0-9]/g,'').toLowerCase().padEnd(16,'0');return ADJ[parseInt(c.slice(0,8),16)%ADJ.length]+NOU[parseInt(c.slice(8,16),16)%NOU.length]}
-function maskGMID(gmid){const s=(gmid||'').replace(/[^a-fA-F0-9]/g,'');if(s.length<8)return s.substring(0,4)+'…';return s.substring(0,4)+'·'.repeat(Math.max(4,s.length-8))+s.substring(s.length-4)}
-function initials(text){const parts=(text.match(/[A-Z][a-z]*/g)||text.split(' ')||['?']);return parts.slice(0,2).map(x=>x[0]).join('').toUpperCase()}
-function profileByGmid(gmid){return profiles.find(x=>x.gmid===gmid)||null}
-function displayNameFor(gmid){const p=profileByGmid(gmid);return p?p.display_name:gmidToAlias(gmid)}
-function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
-async function loadProfiles(){const res=await api('/api/profiles?limit=300');profiles=res.profiles||[];currentProfile=profiles.find(p=>p.gmid===CURRENT_GMID)||null;const name=currentProfile?currentProfile.display_name:gmidToAlias(CURRENT_GMID);$('currentName').textContent=name;$('currentGmid').textContent=maskGMID(CURRENT_GMID);$('currentAv').textContent=initials(name);$('badgeName').textContent=name;$('badgeAv').textContent=initials(name);}
-async function loadThreads(){const inbox=await api(`/api/inbox/${CURRENT_GMID}`);const outbox=await api(`/api/outbox/${CURRENT_GMID}`);receivedItems=inbox.items||[];sentItems=outbox.items||[];$('inboxCount').textContent=receivedItems.length;$('outboxCount').textContent=sentItems.length;$('acceptedCount').textContent=[...receivedItems,...sentItems].filter(x=>x.status==='accepted').length;renderList();}
-function tabItems(){if(activeTab==='received') return receivedItems;if(activeTab==='sent') return sentItems;const all=[...receivedItems,...sentItems];const seen=new Set();return all.filter(x=>x.status==='accepted' && !seen.has(x.id) && seen.add(x.id));}
-function counterparty(item){return item.requester_gmid===CURRENT_GMID?item.target_gmid:item.requester_gmid}
-function roleLabel(item){return item.requester_gmid===CURRENT_GMID?'Recipient':'Requester'}
-function renderList(){const items=tabItems();const root=$('introList');root.innerHTML='';if(!items.length){const label=activeTab==='received'?'No received introductions yet':activeTab==='sent'?'No sent introductions yet':'No accepted connections yet';root.innerHTML=`<div class="empty">${label}</div>`;return;}items.forEach(item=>{const cp=counterparty(item);const cpName=displayNameFor(cp);const accepted=item.status==='accepted';const declined=item.status==='declined';const pending=item.status==='pending';const pillClass=accepted?'live':declined?'declined':'pending';const div=document.createElement('div');div.className='intro';div.innerHTML=`<div class="intro-top"><div><div class="intro-name">${cpName}</div><div class="intro-meta">${roleLabel(item)} · ${maskGMID(cp)} · Score ${item.score}/100 · ${item.created_at}</div></div><div class="state-pill ${pillClass}">${item.status}</div></div><div class="intro-brief">${escapeHtml(item.request_text)}</div><div class="intro-actions">${(item.target_gmid===CURRENT_GMID && pending)?`<button class="btn green" onclick="respondPing(${item.id},'accepted')">Accept</button><button class="btn red" onclick="respondPing(${item.id},'declined')">Decline</button>`:''}${accepted?`<button class="btn gold" onclick="openThread(${item.id})">Open Channel</button>`:''}<a class="btn" target="_blank" href="/member/${cp}">Open ${roleLabel(item)==='Recipient'?'Recipient':'Requester'} View ↗</a></div>`;root.appendChild(div);});}
-async function respondPing(id,status){await api(`/api/ping/${id}/respond`,{method:'POST',body:JSON.stringify({status})});await loadThreads();if(status==='accepted') openThread(id);}
-async function openThread(id){currentPingId=id;$('chatState').textContent=`Active accepted thread #${id}`;$('msgInput').disabled=false;$('sendBtn').disabled=false;await loadChat();}
-async function loadChat(){if(!currentPingId)return;const res=await api(`/api/chat/${currentPingId}`);const msgs=res.messages||[];const chat=$('chatBox');chat.innerHTML='';if(!msgs.length){chat.innerHTML='<div class="empty">Channel open. No messages yet.</div>';return;}msgs.forEach(m=>{const div=document.createElement('div');div.className='msg'+(m.sender_gmid===CURRENT_GMID?' me':'');const name=displayNameFor(m.sender_gmid);div.innerHTML=`<div class="msg-meta">${name} · ${m.created_at}</div><div class="msg-body">${escapeHtml(m.message)}</div>`;chat.appendChild(div);});chat.scrollTop=chat.scrollHeight;}
-async function sendMessage(){const box=$('msgInput');const msg=box.value.trim();if(!msg||!currentPingId)return;await api(`/api/chat/${currentPingId}/send`,{method:'POST',body:JSON.stringify({sender_gmid:CURRENT_GMID,message:msg})});box.value='';await loadChat();}
-document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');activeTab=btn.dataset.tab;renderList();}));
-$('refreshBtn').addEventListener('click',async()=>{await loadThreads();if(currentPingId) await loadChat();});
-$('sendBtn').addEventListener('click',sendMessage);
-$('msgInput').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')sendMessage();});
-async function boot(){await loadProfiles();await loadThreads();setInterval(async()=>{await loadThreads();if(currentPingId){try{await loadChat();}catch(e){}}},5000);}
-boot().catch(console.error);
-window.respondPing=respondPing;window.openThread=openThread;
+function alias(g){const c=(g||'').replace(/[^a-fA-F0-9]/g,'').toLowerCase().padEnd(16,'0');return ADJ[parseInt(c.slice(0,8),16)%ADJ.length]+NOU[parseInt(c.slice(8,16),16)%NOU.length]}
+function mask(g){const s=(g||'').replace(/[^a-fA-F0-9]/g,'');if(s.length<8)return s.substring(0,4)+'…';return s.substring(0,4)+'·'.repeat(Math.max(4,s.length-8))+s.substring(s.length-4)}
+function initials(t){const p=(t.match(/[A-Z][a-z]*/g)||t.split(' ')||['?']);return p.slice(0,2).map(x=>x[0]).join('').toUpperCase()}
+function prof(g){return profiles.find(x=>x.gmid===g)||null}
+function display(g){const p=prof(g); return p?p.display_name:alias(g)}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+async function loadProfiles(){const res=await j('/api/profiles?limit=300'); profiles=res.profiles||[]; const me=prof(CURRENT_GMID); const name=me?me.display_name:alias(CURRENT_GMID); $('currentName').textContent=name; $('currentGmid').textContent=mask(CURRENT_GMID); $('currentAv').textContent=initials(name); const sel=$('inviteTarget'); sel.innerHTML=''; profiles.filter(p=>p.gmid!==CURRENT_GMID).forEach(p=>{const o=document.createElement('option'); o.value=p.gmid; o.textContent=`${alias(p.gmid)} · ${p.display_name}`; sel.appendChild(o);});}
+async function loadSummary(){const s=await j(`/api/profile_summary/${CURRENT_GMID}`); $('sumConnections').textContent=s.total_connections??0; $('sumRank').textContent=s.rank?`#${s.rank}`:'—'; $('sumStrength').textContent=s.strength_score??'—'; if(s.profile){$('pfDomains').value=(s.profile.domains||[]).join(', '); $('pfRoles').value=(s.profile.roles||[]).join(', '); $('pfNetworks').value=(s.profile.networks||[]).join(', '); $('pfValues').value=(s.profile.values||[]).join(', '); $('pfYears').value=s.profile.experience_years??''; $('pfAssets').value=(s.profile.assets||[]).join(', ');}}
+async function loadThreads(){const inbox=await j(`/api/inbox/${CURRENT_GMID}`); const outbox=await j(`/api/outbox/${CURRENT_GMID}`); receivedItems=inbox.items||[]; sentItems=outbox.items||[]; renderList();}
+function itemsForTab(){if(activeTab==='received') return receivedItems; if(activeTab==='sent') return sentItems; const all=[...receivedItems,...sentItems], seen=new Set(); if(activeTab==='accepted') return all.filter(x=>x.status==='accepted' && !seen.has(x.id) && seen.add(x.id)); if(activeTab==='declined') return all.filter(x=>x.status==='declined' && !seen.has(x.id) && seen.add(x.id)); return all;}
+function cp(item){return item.requester_gmid===CURRENT_GMID?item.target_gmid:item.requester_gmid}
+function role(item){return item.requester_gmid===CURRENT_GMID?'Recipient':'Requester'}
+function renderList(){const items=itemsForTab(); const root=$('introList'); root.innerHTML=''; if(!items.length){const label=activeTab==='received'?'No received introductions yet':activeTab==='sent'?'No sent introductions yet':activeTab==='accepted'?'No accepted connections yet':'No declined introductions yet'; root.innerHTML=`<div class="empty">${label}</div>`; return;} items.forEach(item=>{const g=cp(item), nm=display(g), accepted=item.status==='accepted', declined=item.status==='declined', pending=item.status==='pending'; const pill=accepted?'live':declined?'declined':'pending'; const div=document.createElement('div'); div.className='intro'; div.innerHTML=`<div class="intro-top"><div><div class="intro-name">${nm}</div><div class="intro-meta">${role(item)} · ${mask(g)} · Score ${item.score}/100 · ${item.created_at}</div></div><div class="state-pill ${pill}">${item.status}</div></div><div class="intro-brief">${esc(item.request_text)}</div><div class="intro-actions">${(item.target_gmid===CURRENT_GMID && pending)?`<button class="btn green" onclick="respondPing(${item.id},'accepted')">Accept</button><button class="btn red" onclick="respondPing(${item.id},'declined')">Decline</button>`:''}${accepted?`<button class="btn gold" onclick="openThread(${item.id})">Open Channel</button>`:''}<a class="btn blue" target="_blank" href="/member/${g}">Open Member View</a></div>`; root.appendChild(div);});}
+async function respondPing(id,status){await fetch(`/api/ping/${id}/respond`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})}); await Promise.all([loadThreads(),loadSummary()]); if(status==='accepted') openThread(id);}
+async function openThread(id){currentPingId=id; $('chatState').textContent=`Active accepted thread #${id}`; $('msgInput').disabled=false; $('sendBtn').disabled=false; await loadChat();}
+async function loadChat(){if(!currentPingId) return; const res=await j(`/api/chat/${currentPingId}`); const msgs=res.messages||[]; const box=$('chatBox'); box.innerHTML=''; if(!msgs.length){box.innerHTML='<div class="empty" style="background:transparent;border-color:rgba(17,18,23,.08);color:rgba(17,18,23,.45)">Channel open. No messages yet.</div>'; return;} msgs.forEach(m=>{const d=document.createElement('div'); d.className='msg'+(m.sender_gmid===CURRENT_GMID?' me':''); d.innerHTML=`<div class="msg-meta">${display(m.sender_gmid)} · ${m.created_at}</div><div class="msg-body">${esc(m.message)}</div>`; box.appendChild(d);}); box.scrollTop=box.scrollHeight;}
+async function sendMessage(){const box=$('msgInput'); const msg=box.value.trim(); if(!msg||!currentPingId) return; await fetch(`/api/chat/${currentPingId}/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sender_gmid:CURRENT_GMID,message:msg})}); box.value=''; await loadChat();}
+async function sendInvitation(){const target=$('inviteTarget').value, text=$('inviteText').value.trim(); if(!target||!text){$('inviteStatus').textContent='Choose a target and enter a brief.'; return;} await fetch('/api/ping',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requester_gmid:CURRENT_GMID,target_gmid:target,request_text:text,score:88})}); $('inviteText').value=''; $('inviteStatus').textContent='Invitation sent.'; setTimeout(()=>{$('inviteStatus').textContent='';},2500); await loadThreads();}
+async function saveProfile(){const payload={domains:$('pfDomains').value,roles:$('pfRoles').value,networks:$('pfNetworks').value,values:$('pfValues').value,experience_years:$('pfYears').value,assets:$('pfAssets').value}; await fetch(`/api/profile/${CURRENT_GMID}/update`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); $('profileStatus').textContent='Profile updated.'; await Promise.all([loadProfiles(),loadSummary()]); setTimeout(()=>{$('profileStatus').textContent='';},2500);}
+async function ingestDocument(){const file=$('pfDoc').files[0]; if(!file){$('profileStatus').textContent='Choose a document first.'; return;} const fd=new FormData(); fd.append('file',file); const res=await fetch(`/api/profile/${CURRENT_GMID}/ingest-document`,{method:'POST',body:fd}); if(!res.ok){$('profileStatus').textContent='Could not parse that document.'; return;} const data=await res.json(); $('profileStatus').textContent=data.message||'Document parsed.'; await Promise.all([loadProfiles(),loadSummary()]); setTimeout(()=>{$('profileStatus').textContent='';},3500);}
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); activeTab=b.dataset.tab; renderList();}));
+$('refreshBtn').addEventListener('click',async()=>{await Promise.all([loadThreads(),loadSummary()]); if(currentPingId) await loadChat();});
+const openNetworkEl=$('openNetworkBtn');
+const closeNetworkEl=$('closeNetworkBtn');
+const networkModalEl=$('networkModal');
+if(openNetworkEl) openNetworkEl.addEventListener('click',openNetwork);
+if(closeNetworkEl) closeNetworkEl.addEventListener('click',closeNetwork);
+if(networkModalEl) networkModalEl.addEventListener('click',e=>{if(e.target.id==='networkModal') closeNetwork();});
+$('sendBtn').addEventListener('click',sendMessage); $('sendInviteBtn').addEventListener('click',sendInvitation); $('saveProfileBtn').addEventListener('click',saveProfile); $('ingestDocBtn').addEventListener('click',ingestDocument); $('msgInput').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')sendMessage();});
+
+async function openNetwork(){
+  const modal=$('networkModal');
+  const canvas=$('networkCanvas');
+  const svg=$('networkSvg');
+  const list=$('networkList');
+  modal.style.display='flex';
+  const res=await j(`/api/network/${CURRENT_GMID}`);
+  const nodes=res.nodes||[];
+  const edges=res.edges||[];
+  svg.innerHTML='';
+  list.innerHTML='';
+  canvas.querySelectorAll('.network-node').forEach(n=>n.remove());
+  const w=canvas.clientWidth||700, h=canvas.clientHeight||520;
+  const centerX=w/2, centerY=h/2;
+  const others=nodes.filter(n=>n.gmid!==CURRENT_GMID);
+  const positions={};
+  positions[CURRENT_GMID]={x:centerX,y:centerY};
+  const radius=Math.max(160, Math.min(240, Math.min(w,h)/2.7));
+  others.forEach((n,i)=>{
+    const angle=(Math.PI*2*i)/Math.max(1,others.length)-Math.PI/2;
+    positions[n.gmid]={x:centerX+Math.cos(angle)*radius,y:centerY+Math.sin(angle)*radius};
+  });
+  edges.forEach(e=>{
+    const a=positions[CURRENT_GMID];
+    const b=positions[e.other_gmid] || positions[e.to_gmid] || positions[e.from_gmid];
+    if(!a||!b) return;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',a.x); line.setAttribute('y1',a.y);
+    line.setAttribute('x2',b.x); line.setAttribute('y2',b.y);
+    line.setAttribute('stroke','rgba(94,168,255,.55)');
+    line.setAttribute('stroke-width','2');
+    line.setAttribute('stroke-linecap','round');
+    svg.appendChild(line);
+  });
+  nodes.forEach(n=>{
+    const p=positions[n.gmid] || {x:centerX,y:centerY};
+    const d=document.createElement('div');
+    d.className='network-node'+(n.gmid===CURRENT_GMID?' me':'');
+    d.style.left=p.x+'px'; d.style.top=p.y+'px';
+    d.textContent=n.gmid===CURRENT_GMID ? 'Me' : n.label;
+    canvas.appendChild(d);
+  });
+  edges.forEach(e=>{
+    const div=document.createElement('div');
+    div.className='network-item';
+    div.innerHTML=`<div class="network-item-name">${e.other_name}</div><div class="network-item-meta">Accepted connection · Thread ${e.ping_id}</div>`;
+    list.appendChild(div);
+  });
+  if(!edges.length){
+    list.innerHTML='<div class="empty">No accepted connections yet</div>';
+  }
+}
+function closeNetwork(){ $('networkModal').style.display='none'; }
+
+async function boot(){
+  await loadProfiles();
+  await Promise.all([loadSummary(),loadThreads()]);
+  setInterval(async()=>{
+    if(document.hidden) return;
+    await Promise.all([loadSummary(),loadThreads()]);
+    if(currentPingId){
+      try{await loadChat();}catch(e){}
+    }
+  },15000);
+}
+boot().catch(console.error); window.respondPing=respondPing; window.openThread=openThread;
 </script>
+
+  <div class="network-modal" id="networkModal">
+    <div class="network-panel">
+      <div class="network-head">
+        <div>
+          <div class="section-label" style="margin-bottom:6px">My Network</div>
+          <div class="network-title">Accepted Connections Map</div>
+        </div>
+        <button class="btn blue" id="closeNetworkBtn" type="button">Close</button>
+      </div>
+      <div class="network-body">
+        <div class="network-canvas" id="networkCanvas">
+          <svg class="network-svg" id="networkSvg"></svg>
+        </div>
+        <div class="network-list" id="networkList"></div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

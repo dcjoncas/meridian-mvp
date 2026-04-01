@@ -1,22 +1,20 @@
+Meridian loading + polling fix
 
-Meridian multi-thread update
+What was wrong:
+- the network modal close button listener was attaching before that element existed
+- that could break the member page JavaScript and make the page appear stuck / empty
 
-What changed:
-- Added /api/outbox/{gmid}
-- Added /api/threads/{gmid}
-- member.html now shows three views:
-  - Received
-  - Sent
-  - Accepted
-- Mike can now see who accepted and choose which accepted thread to chat in
-- The contacted person can do the same on their side
+What is fixed:
+- safe event binding for My Network modal
+- page loads correctly again
+- polling reduced from every 5 seconds to every 15 seconds
+- polling now pauses while the tab is hidden
 
-How to use:
-1. Replace main.py and member.html with these versions
-2. Keep your current ui.html and GMID.html from this package
-3. Restart:
-   uvicorn main:app --reload
+Why you kept seeing repeated GET calls:
+- that was the auto-refresh polling in member.html
+- inbox / outbox / profile summary were refreshing on an interval by design
 
-Notes:
-- Open My Inbox now works for Mike as a multi-thread view, not just a pure received-only inbox
-- Accepted threads can be opened from either side
+Replace:
+- member.html
+
+You can keep the rest of your current working files.
