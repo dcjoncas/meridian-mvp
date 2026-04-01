@@ -1,7 +1,7 @@
 
 import os, io, re, html, hashlib, random, secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -40,9 +40,12 @@ def unique_username(cur, desired: str, current_member_id: Optional[int] = None) 
     candidate = base
     counter = 1
     while True:
-        cur.execute("SELECT member_id FROM member_auth WHERE lower(username)=lower(%s)", (candidate,))
+        if current_member_id is None:
+            cur.execute("SELECT member_id FROM member_auth WHERE lower(username)=lower(%s)", (candidate,))
+        else:
+            cur.execute("SELECT member_id FROM member_auth WHERE lower(username)=lower(%s) AND member_id<>%s", (candidate, current_member_id))
         row = cur.fetchone()
-        if not row or (current_member_id is not None and row[0] == current_member_id):
+        if not row:
             return candidate
         counter += 1
         candidate = f"{base}{counter}"
@@ -313,14 +316,19 @@ def init_schema():
                     desired_password = f"Meridian-{make_gmid(display_name)[:8]}"
                     must_change = True
                 if has_auth:
-                    safe_username = unique_username(cur, desired_username, member_id)
-                    if existing_username != safe_username or is_system:
+                    if existing_username != desired_username:
+                        safe_username = unique_username(cur, desired_username, member_id)
                         cur.execute(
                             "UPDATE member_auth SET username=%s, password_hash=%s, must_change_password=%s WHERE member_id=%s",
                             (safe_username, hash_password(desired_password), must_change, member_id)
                         )
+                    else:
+                        cur.execute(
+                            "UPDATE member_auth SET password_hash=%s, must_change_password=%s WHERE member_id=%s",
+                            (hash_password(desired_password), must_change, member_id)
+                        )
                     continue
-                username = unique_username(cur, desired_username, member_id)
+                username = unique_username(cur, desired_username)
                 cur.execute(
                     "INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)",
                     (member_id, username, hash_password(desired_password), must_change)
