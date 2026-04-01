@@ -51,8 +51,8 @@ def unique_username(cur, desired: str, current_member_id: Optional[int] = None) 
         candidate = f"{base}{counter}"
 
 
-ALIAS_ADJ = ["Velvet ","North ","Aurelian ","Quiet ","Silver ","Midnight ","Golden ","Ivory ","Obsidian ","Rare ","Blue ","Lucent "]
-ALIAS_NOUN = ["Summit","Harbor","Atlas","Crown","Signal","Meridian","Ledger","Falcon","Orbit","Vale","Current","Bridge"]
+ALIAS_ADJ = ["Blue","Red","Green","Swift","Bold","Wise","Fierce","Calm","Silent","Brave","Mystic","Dark","Light","Stormy","Fiery","Icy","Golden","Silver","Shadow","Thunder","Ancient","Eternal","Vivid","Quiet","Loud","Sharp","Dull","Bright","Dim","Hot","Cold","Wet","Dry","Fast","Slow","Heavy","Strong","Weak","Tall","Short","Long","Brief","Deep","Shallow","Wide","Narrow","Old","New","Young","Aged","Pure","Tainted","Clear","Cloudy","Sunny","Rainy","Windy","Still","Wild","Tame","Free","Bound","Happy","Sad","Angry","Peaceful","Chaotic","Orderly","Elegant","Clumsy","Graceful","Awkward","Smart","Clever","Rich","Poor","Full","Empty","Open","Closed","Locked","Unlocked","Safe","Dangerous","Friendly","Hostile","Warm","Cool","Soft","Hard","Smooth","Rough","Shiny","Matte","Vibrant","Faded","Iron","Velvet"]
+ALIAS_NOUN = ["Dragon","Phoenix","Tiger","Eagle","Wolf","Fox","Bear","Lion","Hawk","Raven","Shark","Panther","Owl","Falcon","Viper","Cobra","Lynx","Stag","Bull","Horse","Snake","Spider","Scorpion","Whale","Dolphin","Fish","Bird","Cat","Dog","Mouse","Bat","Deer","Elk","Moose","Rabbit","Hare","Squirrel","Beaver","Otter","Seal","Walrus","Penguin","Ostrich","Peacock","Parrot","Crow","Dove","Swan","Goose","Duck","Pig","Cow","Sheep","Goat","Donkey","Mule","Camel","Llama","Elephant","Rhino","Hippo","Giraffe","Zebra","Antelope","Buffalo","Bison","Yak","Monkey","Ape","Gorilla","Chimp","Lemur","Sloth","Koala","Kangaroo","Platypus","Turtle","Tortoise","Lizard","Gecko","Iguana","Alligator","Crocodile","Frog","Toad","Salamander","Newt","Butterfly","Moth","Bee","Wasp","Condor","Manta","Narwhal","Puma","Jaguar","Raptor","Coyote","Badger"]
 
 def alias_from_gmid(gmid: str) -> str:
     c = re.sub(r"[^a-fA-F0-9]", "", gmid or "").lower().ljust(16, "0")
