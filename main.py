@@ -35,13 +35,14 @@ def slugify_username(value: str) -> str:
     base = re.sub(r"[^a-z0-9]+", ".", (value or "").lower()).strip(".")
     return base or "member"
 
-def unique_username(cur, desired: str) -> str:
+def unique_username(cur, desired: str, current_member_id: Optional[int] = None) -> str:
     base = slugify_username(desired)
     candidate = base
     counter = 1
     while True:
-        cur.execute("SELECT 1 FROM member_auth WHERE username=%s", (candidate,))
-        if not cur.fetchone():
+        cur.execute("SELECT member_id FROM member_auth WHERE lower(username)=lower(%s)", (candidate,))
+        row = cur.fetchone()
+        if not row or (current_member_id is not None and row[0] == current_member_id):
             return candidate
         counter += 1
         candidate = f"{base}{counter}"
@@ -312,15 +313,18 @@ def init_schema():
                     desired_password = f"Meridian-{make_gmid(display_name)[:8]}"
                     must_change = True
                 if has_auth:
-                    if is_system and existing_username != desired_username:
-                        cur.execute("SELECT member_id FROM member_auth WHERE lower(username)=lower(%s)", (desired_username,))
-                        owner = cur.fetchone()
-                        if owner and owner[0] != member_id:
-                            cur.execute("UPDATE member_auth SET username=%s WHERE member_id=%s", (f"member.{owner[0]}", owner[0]))
-                        cur.execute("UPDATE member_auth SET username=%s, password_hash=%s, must_change_password=%s WHERE member_id=%s", (desired_username, hash_password(desired_password), must_change, member_id))
+                    safe_username = unique_username(cur, desired_username, member_id)
+                    if existing_username != safe_username or is_system:
+                        cur.execute(
+                            "UPDATE member_auth SET username=%s, password_hash=%s, must_change_password=%s WHERE member_id=%s",
+                            (safe_username, hash_password(desired_password), must_change, member_id)
+                        )
                     continue
-                username = desired_username if is_system else unique_username(cur, desired_username)
-                cur.execute("INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)", (member_id, username, hash_password(desired_password), must_change))
+                username = unique_username(cur, desired_username, member_id)
+                cur.execute(
+                    "INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)",
+                    (member_id, username, hash_password(desired_password), must_change)
+                )
     finally:
         put_conn(conn)
 
