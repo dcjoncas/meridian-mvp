@@ -154,22 +154,95 @@ def extract_text_from_upload(upload: UploadFile, raw: bytes) -> str:
     return raw.decode("utf-8", errors="ignore")
 
 def parse_profile_text(text: str) -> Dict[str, Any]:
-    lower = (text or "").lower()
-    domains = [d for d in DOMAIN_KEYWORDS if d.lower() in lower]
-    roles = [r for r in ROLE_KEYWORDS if r.lower() in lower]
-    networks = [n for n in NETWORK_KEYWORDS if n.lower() in lower]
-    values = [v for v in VALUE_KEYWORDS if v.lower() in lower]
-    years = max([int(x) for x in re.findall(r"(\d+)\+?\s+years?", lower)] + [0])
-    lines = [re.sub(r"\s+", " ", x).strip(" -•\t") for x in re.split(r"[\n\r]+|[;]", text)]
-    assets = []
-    for line in lines:
-        if len(line) < 18: continue
-        if any(w in line.lower() for w in ["led","built","delivered","improved","implemented","executed","created","managed","launched","reduced","increased","designed","negotiated","supported","stabilized"]):
-            if line not in assets: assets.append(line)
-        if len(assets) >= 12: break
-    attributes = {k: True for k in ["sap","oracle","azure","aws","board","global","confidential"] if k in lower}
-    return {"domains": domains, "roles": roles, "networks": networks, "values": values, "assets": assets, "experience_years": years, "attributes": attributes, "extracted_preview": text[:1200]}
+    text = (text or "").strip()
+    lower = text.lower()
+    doc_tokens = set(tokenize(text))
+    lines = [re.sub(r"\s+", " ", x).strip(" -•\t") for x in re.split(r"[\n\r]+|[;]", text) if x and x.strip()]
 
+    def unique_keep(items: List[str]) -> List[str]:
+        out, seen = [], set()
+        for item in items:
+            s = str(item).strip()
+            key = s.lower()
+            if s and key not in seen:
+                out.append(s)
+                seen.add(key)
+        return out
+
+    def scan_keywords(candidates: List[str], exact: bool = False) -> List[str]:
+        found = []
+        for candidate in candidates:
+            c = candidate.lower()
+            c_tokens = set(tokenize(candidate))
+            if c in lower:
+                found.append(candidate)
+            elif not exact and c_tokens and len(c_tokens & doc_tokens) >= max(1, min(2, len(c_tokens))):
+                found.append(candidate)
+        return unique_keep(found)
+
+    domains = scan_keywords(DOMAIN_KEYWORDS)
+    roles = scan_keywords(ROLE_KEYWORDS)
+    networks = scan_keywords(NETWORK_KEYWORDS)
+    values = scan_keywords(VALUE_KEYWORDS, exact=True)
+
+    years = max([int(x) for x in re.findall(r"(\d+)\+?\s+years?", lower)] + [0])
+    if not years:
+        m = re.search(r"experience[^\n\r]{0,30}?(\d{1,2})", lower)
+        if m:
+            years = int(m.group(1))
+
+    assets, biography_parts, political_social = [], [], []
+    leadership_verbs = ["led","built","delivered","improved","implemented","executed","created","managed","launched","reduced","increased","designed","negotiated","supported","stabilized","scaled","advised","transformed","owned","grew"]
+    social_terms = ["board","advisor","advisory","conference","speaker","nonprofit","fundraising","campaign","alumni","community","policy","government","association","committee","forum"]
+    for line in lines:
+        ll = line.lower()
+        if len(line) >= 18 and any(w in ll for w in leadership_verbs):
+            assets.append(line)
+        elif 30 <= len(line) <= 260 and len(biography_parts) < 4:
+            biography_parts.append(line)
+        if any(term in ll for term in social_terms) and len(line) >= 10:
+            political_social.append(line)
+    assets = unique_keep(assets)[:12]
+    political_social = unique_keep(political_social)[:8]
+
+    headline = None
+    for line in lines[:8]:
+        if 8 <= len(line) <= 120 and not re.search(r"@|\b(phone|email|linkedin|resume|curriculum vitae)\b", line, re.I):
+            headline = line
+            break
+    if not headline:
+        head_role = roles[0] if roles else None
+        head_domain = domains[0] if domains else None
+        headline = f"{head_role} · {head_domain}" if head_role and head_domain else (head_role or head_domain or None)
+
+    biography = " ".join(unique_keep(biography_parts))[:1200] or None
+    attributes = {
+        "sap": "sap" in lower,
+        "oracle": "oracle" in lower,
+        "azure": "azure" in lower,
+        "aws": "aws" in lower,
+        "board": "board" in lower,
+        "global": "global" in lower,
+        "confidential": "confidential" in lower,
+        "private_equity": "private equity" in lower,
+        "venture_capital": "venture capital" in lower,
+        "fortune_500": "fortune 500" in lower,
+    }
+    attributes = {k:v for k,v in attributes.items() if v}
+
+    return {
+        "headline": headline,
+        "biography": biography,
+        "domains": domains,
+        "roles": roles,
+        "networks": networks,
+        "political_social": political_social,
+        "values": values,
+        "assets": assets,
+        "experience_years": years,
+        "attributes": attributes,
+        "extracted_preview": text[:2000]
+    }
 def init_schema():
     conn = get_conn()
     try:
@@ -212,6 +285,7 @@ def init_schema():
               member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
               filename TEXT NOT NULL,
               content_type TEXT,
+              source_type TEXT,
               extracted_text TEXT,
               parsed_json JSONB NOT NULL DEFAULT '{}'::jsonb,
               uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -254,6 +328,10 @@ def init_schema():
               message TEXT NOT NULL,
               created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            ALTER TABLE member_documents ADD COLUMN IF NOT EXISTS source_type TEXT;
+            UPDATE member_documents
+               SET source_type = COALESCE(NULLIF(source_type, ''), 'upload')
+             WHERE source_type IS NULL OR source_type = '';
             """)
             cur.execute("SELECT id, gmid FROM members WHERE display_name=%s", ("Mike S",))
             mike_row = cur.fetchone()
@@ -352,10 +430,90 @@ def fetch_profiles(limit: int = 250):
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT m.gmid, m.display_name, m.email, m.is_system, m.status, m.created_at, p.domains_json AS domains, p.roles_json AS roles, p.experience_years, p.networks_json AS networks, p.political_social_json AS political_social, p.assets_json AS assets, p.values_json AS values, p.attributes_json AS attributes, p.strength_score FROM members m JOIN member_profiles p ON p.member_id = m.id ORDER BY m.created_at DESC LIMIT %s""", (limit,))
+            cur.execute("""SELECT m.gmid, m.display_name, m.email, m.is_system, m.status, m.created_at, p.headline, p.biography, p.domains_json AS domains, p.roles_json AS roles, p.experience_years, p.networks_json AS networks, p.political_social_json AS political_social, p.assets_json AS assets, p.values_json AS values, p.attributes_json AS attributes, p.strength_score FROM members m JOIN member_profiles p ON p.member_id = m.id ORDER BY m.created_at DESC LIMIT %s""", (limit,))
             return cur.fetchall()
     finally:
         put_conn(conn)
+
+def fetch_member_pool(limit: int = 5000):
+    return [p for p in fetch_profiles(limit) if p.get("status") in ("active", "pending_vetting") and p.get("status") != "ghosted"]
+
+def compute_reputation_snapshot() -> Dict[str, Dict[str, float]]:
+    conn = get_conn()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                WITH ping_rollup AS (
+                    SELECT gmid,
+                           SUM(sent_count) AS sent_count,
+                           SUM(accepted_sent_count) AS accepted_sent_count,
+                           SUM(received_count) AS received_count,
+                           SUM(accepted_received_count) AS accepted_received_count,
+                           SUM(total_connections) AS total_connections
+                      FROM (
+                        SELECT requester_gmid AS gmid,
+                               COUNT(*) AS sent_count,
+                               COUNT(*) FILTER (WHERE status='accepted') AS accepted_sent_count,
+                               0::INT AS received_count,
+                               0::INT AS accepted_received_count,
+                               COUNT(*) FILTER (WHERE status='accepted') AS total_connections
+                          FROM pings
+                         GROUP BY requester_gmid
+                        UNION ALL
+                        SELECT target_gmid AS gmid,
+                               0::INT AS sent_count,
+                               0::INT AS accepted_sent_count,
+                               COUNT(*) AS received_count,
+                               COUNT(*) FILTER (WHERE status='accepted') AS accepted_received_count,
+                               COUNT(*) FILTER (WHERE status='accepted') AS total_connections
+                          FROM pings
+                         GROUP BY target_gmid
+                      ) x
+                     GROUP BY gmid
+                ),
+                ref_rollup AS (
+                    SELECT reference_gmid AS gmid, COUNT(*) AS reference_count
+                      FROM member_references
+                     WHERE status='active'
+                     GROUP BY reference_gmid
+                )
+                SELECT m.gmid,
+                       COALESCE(pr.sent_count, 0) AS sent_count,
+                       COALESCE(pr.accepted_sent_count, 0) AS accepted_sent_count,
+                       COALESCE(pr.received_count, 0) AS received_count,
+                       COALESCE(pr.accepted_received_count, 0) AS accepted_received_count,
+                       COALESCE(pr.total_connections, 0) AS total_connections,
+                       COALESCE(rr.reference_count, 0) AS reference_count
+                  FROM members m
+             LEFT JOIN ping_rollup pr ON pr.gmid = m.gmid
+             LEFT JOIN ref_rollup rr ON rr.gmid = m.gmid
+            """)
+            rows = cur.fetchall()
+    finally:
+        put_conn(conn)
+    snapshot = {}
+    for row in rows:
+        sent = int(row.get("sent_count") or 0)
+        accepted_sent = int(row.get("accepted_sent_count") or 0)
+        received = int(row.get("received_count") or 0)
+        accepted_received = int(row.get("accepted_received_count") or 0)
+        connections = int(row.get("total_connections") or 0)
+        references = int(row.get("reference_count") or 0)
+        sent_accept_rate = (accepted_sent / sent) if sent else 0.0
+        received_accept_rate = (accepted_received / received) if received else 0.0
+        reputation = min(100.0, round((sent_accept_rate * 42.0) + (received_accept_rate * 28.0) + (min(connections, 12) * 1.75) + (min(references, 8) * 1.5), 2))
+        snapshot[row["gmid"]] = {
+            "sent_count": sent,
+            "accepted_sent_count": accepted_sent,
+            "received_count": received,
+            "accepted_received_count": accepted_received,
+            "connections": connections,
+            "reference_count": references,
+            "sent_accept_rate": round(sent_accept_rate, 4),
+            "received_accept_rate": round(received_accept_rate, 4),
+            "reputation_score": reputation,
+        }
+    return snapshot
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -541,7 +699,7 @@ def api_profile_me(request: Request):
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="profile not found")
-            cur.execute("""SELECT id, filename, source_type, parsed_json, uploaded_at
+            cur.execute("""SELECT id, filename, COALESCE(source_type, content_type, 'upload') AS source_type, parsed_json, uploaded_at
                            FROM member_documents md
                            JOIN members m ON m.id = md.member_id
                            WHERE m.gmid=%s
@@ -608,9 +766,9 @@ async def api_profile_me_upload(request: Request, document: UploadFile = File(..
             if not row:
                 raise HTTPException(status_code=404, detail="member not found")
             member_id = row["id"]
-            cur.execute("""INSERT INTO member_documents (member_id, filename, source_type, extracted_text, parsed_json)
-                           VALUES (%s,%s,%s,%s,%s) RETURNING id, uploaded_at""",
-                        (member_id, document.filename or "upload", "upload", extracted, Json(parsed)))
+            cur.execute("""INSERT INTO member_documents (member_id, filename, content_type, source_type, extracted_text, parsed_json)
+                           VALUES (%s,%s,%s,%s,%s,%s) RETURNING id, uploaded_at""",
+                        (member_id, document.filename or "upload", document.content_type or "application/octet-stream", "upload", extracted, Json(parsed)))
             saved = cur.fetchone()
         return JSONResponse(content=jsonable_encoder({
             "ok": True,
@@ -663,19 +821,47 @@ async def api_profile_create(request: Request):
 async def api_match(request: Request):
     data = await request.json(); q = (data.get("query") or "").strip(); requester = (data.get("requester_gmid") or "").strip()
     if not q: raise HTTPException(status_code=400, detail="query is required")
-    profiles = [
-        p for p in fetch_profiles(5000)
-        if p["gmid"] != requester
-        and p.get("status") in ("active", "pending_vetting")
-        and p.get("status") != "ghosted"
-    ]
-    scored = [(score_profile(q,p),p) for p in profiles]
-    scored = [(s,p) for s,p in scored if s > 0]
-    scored.sort(key=lambda x:(x[0], profile_strength_score(x[1])), reverse=True)
+    canonical_pool = fetch_member_pool(5000)
+    pool = [p for p in canonical_pool if p["gmid"] != requester]
+    reputation = compute_reputation_snapshot()
+    requester_profile = next((p for p in canonical_pool if p["gmid"] == requester), None)
+    requester_domains = set((requester_profile or {}).get("domains") or [])
+    requester_networks = set((requester_profile or {}).get("networks") or [])
+    scored = []
+    for p in pool:
+        base = score_profile(q, p)
+        rep = reputation.get(p["gmid"], {})
+        domain_overlap = len(requester_domains & set(p.get("domains") or []))
+        network_overlap = len(requester_networks & set(p.get("networks") or []))
+        elite_score = base + min(12, domain_overlap * 4) + min(10, network_overlap * 5) + ((rep.get("reputation_score") or 0) * 0.18)
+        if elite_score > 0:
+            scored.append((elite_score, p, rep, domain_overlap, network_overlap))
+    scored.sort(key=lambda x:(x[0], profile_strength_score(x[1]), x[2].get("reputation_score", 0)), reverse=True)
     out=[]
-    for s,p in scored[:10]:
-        out.append({"score": int(s), "profile":{"gmid":p["gmid"],"display_name":p["display_name"],"domains":p["domains"],"roles":p["roles"],"experience_years":p["experience_years"],"assets_preview":(p["assets"] or [])[:6],"networks":p["networks"],"is_system":p["is_system"],"strength_score": profile_strength_score(p)}})
-    return JSONResponse(content=jsonable_encoder({"ok": True, "query": q, "count": len(out), "results": out, "pool": "all_active_members_excluding_ghosts"}))
+    for s,p,rep,domain_overlap,network_overlap in scored[:10]:
+        out.append({
+            "score": int(round(s)),
+            "profile": {
+                "gmid": p["gmid"],
+                "display_name": p["display_name"],
+                "domains": p.get("domains") or [],
+                "roles": p.get("roles") or [],
+                "experience_years": p.get("experience_years") or 0,
+                "assets_preview": (p.get("assets") or [])[:6],
+                "networks": p.get("networks") or [],
+                "is_system": p.get("is_system"),
+                "strength_score": p.get("strength_score") or profile_strength_score(p),
+                "reputation_score": rep.get("reputation_score", 0),
+                "headline": p.get("headline")
+            },
+            "signals": {
+                "shared_domains": domain_overlap,
+                "shared_networks": network_overlap,
+                "connections": rep.get("connections", 0),
+                "references": rep.get("reference_count", 0)
+            }
+        })
+    return JSONResponse(content=jsonable_encoder({"ok": True, "query": q, "count": len(out), "results": out, "pool": "canonical_active_pending_member_pool"}))
 
 @app.post("/api/ping")
 async def api_ping(request: Request):
@@ -772,26 +958,27 @@ def api_network(gmid: str):
 
 @app.get("/api/rankings")
 def api_rankings(limit: int = 60):
-    profiles = fetch_profiles(5000)
-    conn = get_conn()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            out=[]
-            for p in profiles:
-                if p.get("status") not in ("active", "pending_vetting"):
-                    continue
-                cur.execute("SELECT COUNT(*) AS c FROM pings WHERE status='accepted' AND (requester_gmid=%s OR target_gmid=%s)", (p["gmid"], p["gmid"]))
-                connections = cur.fetchone()["c"]
-                cur.execute("SELECT COUNT(*) AS c FROM pings WHERE requester_gmid=%s", (p["gmid"],)); sent = cur.fetchone()["c"]
-                cur.execute("SELECT COUNT(*) AS c FROM pings WHERE requester_gmid=%s AND status='accepted'", (p["gmid"],)); accepted_sent = cur.fetchone()["c"]
-                response_rate = (accepted_sent / sent) if sent else 0
-                strength = profile_strength_score(p)
-                composite = round((strength * 0.72) + (min(connections,10) * 2.0) + (response_rate * 8.0), 2)
-                out.append({"gmid": p["gmid"], "display_name": p["display_name"], "strength_score": strength, "connections": connections, "response_rate": round(response_rate,2), "composite_score": composite, "domains": p["domains"]})
-            out.sort(key=lambda x:(x["composite_score"], x["strength_score"], x["connections"]), reverse=True)
-            for idx,row in enumerate(out, start=1): row["rank"]=idx
-            return JSONResponse(content=jsonable_encoder({"ok": True, "items": out[:limit]}))
-    finally: put_conn(conn)
+    profiles = fetch_member_pool(5000)
+    reputation = compute_reputation_snapshot()
+    out=[]
+    for p in profiles:
+        rep = reputation.get(p["gmid"], {})
+        strength = p.get("strength_score") or profile_strength_score(p)
+        composite = round((strength * 0.58) + ((rep.get("reputation_score") or 0) * 0.32) + (min(rep.get("connections", 0), 12) * 1.1), 2)
+        out.append({
+            "gmid": p["gmid"],
+            "display_name": p["display_name"],
+            "strength_score": strength,
+            "connections": rep.get("connections", 0),
+            "response_rate": round(rep.get("sent_accept_rate", 0), 2),
+            "reputation_score": rep.get("reputation_score", 0),
+            "reference_count": rep.get("reference_count", 0),
+            "composite_score": composite,
+            "domains": p.get("domains") or []
+        })
+    out.sort(key=lambda x:(x["composite_score"], x["reputation_score"], x["strength_score"], x["connections"]), reverse=True)
+    for idx,row in enumerate(out, start=1): row["rank"]=idx
+    return JSONResponse(content=jsonable_encoder({"ok": True, "items": out[:limit], "pool": "canonical_active_pending_member_pool"}))
 
 @app.post("/api/invitations/create")
 async def api_create_invitation(request: Request):
@@ -853,24 +1040,28 @@ async def api_complete_invitation(token: str, request: Request):
 
 @app.get("/api/members/discover")
 def api_member_discovery(limit: int = 120):
-    profiles = fetch_profiles(5000)
+    profiles = fetch_member_pool(5000)
+    reputation = compute_reputation_snapshot()
     items = []
     for p in profiles:
-        if p.get("status") not in ("active", "pending_vetting"):
-            continue
+        rep = reputation.get(p["gmid"], {})
         items.append({
             "gmid": p["gmid"],
-            "alias": "GHOST MEMBER" if p.get("status") == "ghosted" else alias_from_gmid(p["gmid"]),
-            "headline": ", ".join((p.get("roles") or [])[:2]) or "Meridian Member",
+            "alias": alias_from_gmid(p["gmid"]),
+            "headline": p.get("headline") or (", ".join((p.get("roles") or [])[:2]) or "Meridian Member"),
             "domains": p.get("domains") or [],
             "roles": p.get("roles") or [],
             "networks": p.get("networks") or [],
             "experience_years": p.get("experience_years") or 0,
-            "strength_score": p.get("strength_score") or profile_strength_score(p)
+            "strength_score": p.get("strength_score") or profile_strength_score(p),
+            "reputation_score": rep.get("reputation_score", 0),
+            "connections": rep.get("connections", 0),
+            "reference_count": rep.get("reference_count", 0)
         })
-    items.sort(key=lambda x: (x["strength_score"], x["experience_years"]), reverse=True)
-    return JSONResponse(content=jsonable_encoder({"ok": True, "items": items[:limit]}))
+    items.sort(key=lambda x: (x["reputation_score"], x["strength_score"], x["experience_years"]), reverse=True)
+    return JSONResponse(content=jsonable_encoder({"ok": True, "items": items[:limit], "pool": "canonical_active_pending_member_pool"}))
 
+@app.get("/api/admin/members")
 @app.get("/api/admin/members")
 def api_admin_members(request: Request, limit: int = 500):
     if not get_current_admin(request):
