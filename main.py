@@ -416,20 +416,40 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 @app.on_event("startup")
 def startup(): init_schema()
 
+def ensure_canonical_member_rows(conn):
+    with conn.cursor() as cur:
+        cur.execute("SELECT id, gmid FROM members WHERE status IN ('active','pending_vetting') AND (alias_name IS NULL OR alias_name='') ORDER BY id ASC")
+        for member_id, gmid in cur.fetchall():
+            cur.execute("UPDATE members SET alias_name=%s WHERE id=%s", (canonical_alias(cur, gmid, member_id), member_id))
+        cur.execute("""INSERT INTO member_profiles (member_id)
+                       SELECT m.id FROM members m
+                       LEFT JOIN member_profiles p ON p.member_id=m.id
+                       WHERE m.status IN ('active','pending_vetting') AND p.member_id IS NULL""")
+    conn.commit()
+
 def fetch_profiles(limit: int = 250):
     conn = get_conn()
     try:
+        ensure_canonical_member_rows(conn)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""SELECT m.id, m.gmid, m.alias_name, m.display_name, m.email, m.is_system, m.status, m.created_at,
-                                  p.headline, p.biography, p.domains_json AS domains, p.roles_json AS roles,
-                                  p.experience_years, p.networks_json AS networks, p.political_social_json AS political_social,
-                                  p.assets_json AS assets, p.values_json AS values, p.attributes_json AS attributes,
-                                  p.strength_score, p.updated_at
+                                  COALESCE(p.headline, '') AS headline,
+                                  COALESCE(p.biography, '') AS biography,
+                                  COALESCE(p.domains_json, '[]'::jsonb) AS domains,
+                                  COALESCE(p.roles_json, '[]'::jsonb) AS roles,
+                                  COALESCE(p.experience_years, 0) AS experience_years,
+                                  COALESCE(p.networks_json, '[]'::jsonb) AS networks,
+                                  COALESCE(p.political_social_json, '[]'::jsonb) AS political_social,
+                                  COALESCE(p.assets_json, '[]'::jsonb) AS assets,
+                                  COALESCE(p.values_json, '[]'::jsonb) AS values,
+                                  COALESCE(p.attributes_json, '{}'::jsonb) AS attributes,
+                                  COALESCE(p.strength_score, 0) AS strength_score,
+                                  p.updated_at
                            FROM members m
-                           JOIN member_profiles p ON p.member_id = m.id
+                           LEFT JOIN member_profiles p ON p.member_id = m.id
                            WHERE m.status IN ('active','pending_vetting')
                              AND COALESCE(m.alias_name, '') <> ''
-                           ORDER BY m.is_system DESC, p.strength_score DESC, p.experience_years DESC, m.created_at DESC, m.id ASC
+                           ORDER BY m.is_system DESC, COALESCE(p.strength_score,0) DESC, COALESCE(p.experience_years,0) DESC, m.created_at DESC, m.id ASC
                            LIMIT %s""", (limit,))
             return cur.fetchall()
     finally:
@@ -438,10 +458,10 @@ def fetch_profiles(limit: int = 250):
 def canonical_visible_member_count() -> int:
     conn = get_conn()
     try:
+        ensure_canonical_member_rows(conn)
         with conn.cursor() as cur:
             cur.execute("""SELECT COUNT(*)
                            FROM members m
-                           JOIN member_profiles p ON p.member_id = m.id
                            WHERE m.status IN ('active','pending_vetting') AND COALESCE(m.alias_name, '') <> ''""")
             return int(cur.fetchone()[0])
     finally:
@@ -520,6 +540,7 @@ def get_current_member(request: Request):
         return None
     conn = get_conn()
     try:
+        ensure_canonical_member_rows(conn)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT gmid, display_name, email, status, is_system FROM members WHERE gmid=%s AND status IN ('active','pending_vetting')", (gmid,))
             return cur.fetchone()
@@ -606,8 +627,8 @@ async def api_auth_change_password(request: Request):
 @app.get("/api/profiles")
 def api_profiles(limit: int = 250): return JSONResponse(content=jsonable_encoder({"count": limit, "profiles": fetch_profiles(limit)}))
 
-@app.get("/api/profile/me")
-def api_profile_me(request: Request):
+@app.get("/api/profiles/self")
+def api_profile_self(request: Request):
     member = get_current_member(request)
     if not member:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -677,14 +698,22 @@ def api_profile_me(request: Request):
     finally:
         put_conn(conn)
 
-@app.get("/api/profile/{gmid}")
-def api_profile(gmid: str):
+@app.get("/api/profile/me")
+def api_profile_me_legacy(request: Request):
+    return api_profile_self(request)
+
+@app.get("/api/profiles/{gmid}")
+def api_profile_public(gmid: str):
     if gmid == "me":
-        raise HTTPException(status_code=400, detail="use /api/profile/me")
+        raise HTTPException(status_code=400, detail="use /api/profiles/self")
     current = next((p for p in fetch_profiles(5000) if p["gmid"] == gmid), None)
     if not current:
         raise HTTPException(status_code=404, detail="profile not found")
     return JSONResponse(content=jsonable_encoder({"ok": True, "profile": current}))
+
+@app.get("/api/profile/{gmid}")
+def api_profile(gmid: str):
+    return api_profile_public(gmid)
 
 @app.post("/api/profile/me")
 async def api_profile_me_update(request: Request):
@@ -713,6 +742,7 @@ async def api_profile_me_update(request: Request):
             if not row:
                 raise HTTPException(status_code=404, detail="member not found")
             member_id = row["id"]
+            cur.execute("INSERT INTO member_profiles (member_id) VALUES (%s) ON CONFLICT (member_id) DO NOTHING", (member_id,))
             cur.execute("UPDATE members SET display_name=%s, email=%s, status='active' WHERE id=%s", (display_name, email, member_id))
             cur.execute("""UPDATE member_profiles
                            SET headline=%s, biography=%s, domains_json=%s, roles_json=%s, experience_years=%s,
