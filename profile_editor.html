@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Meridian — Update Profile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--obsidian:#060608;--panel:#0E0E15;--surface:#13131E;--rim:rgba(255,255,255,.06);--gold:#C9A84C;--gold-light:#E4C778;--platinum:#A8AECC;--snow:#E9EAF4;--blue:#63acff;--green:#4ADE80;--red:#F87171}
+    *{box-sizing:border-box} body{margin:0;background:var(--obsidian);color:var(--snow);font-family:Montserrat,sans-serif}
+    .wrap{max-width:1320px;margin:0 auto;padding:28px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px;flex-wrap:wrap}.title{font-family:'Cormorant Garamond',serif;font-size:38px}.sub{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--platinum);opacity:.58;margin-top:5px}
+    .nav{display:flex;gap:10px;flex-wrap:wrap}.btn,.nav a,.nav button{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:11px 14px;border-radius:10px;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;text-decoration:none;cursor:pointer}.btn.gold,.nav .gold{border-color:rgba(201,168,76,.35);color:var(--gold)}.btn.blue,.nav .blue{border-color:rgba(99,172,255,.35);color:var(--blue)}.btn.green{border-color:rgba(74,222,128,.32);color:var(--green)}
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:20px}.panel{border:1px solid var(--rim);border-radius:16px;background:linear-gradient(180deg,rgba(14,14,21,.96),rgba(10,10,16,.96));padding:20px}.label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}.hero{font-family:'Cormorant Garamond',serif;font-size:34px;margin:0 0 10px}.muted{color:rgba(233,234,244,.75);line-height:1.75;font-size:13px}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.full{grid-column:1/-1} .field label{display:block;font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--platinum);opacity:.7;margin-bottom:8px}.field input,.field textarea{width:100%;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 14px;background:rgba(255,255,255,.025);color:var(--snow);font:inherit}.field textarea{min-height:112px;resize:vertical}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.chip{display:inline-flex;padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.08);color:var(--platinum);font-size:10px}
+    .upload-box{border:1px dashed rgba(201,168,76,.25);border-radius:14px;padding:16px;background:rgba(201,168,76,.03)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;line-height:1.6;color:#dfe2ef;white-space:pre-wrap}
+    .doc-item{padding:12px 0;border-bottom:1px solid rgba(255,255,255,.05)}.doc-item:last-child{border-bottom:none}.doc-title{font-size:12px;color:var(--snow)}.doc-meta{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--platinum);opacity:.55;margin-top:5px}
+    .notice-stack{position:fixed;top:18px;right:18px;display:flex;flex-direction:column;gap:10px;z-index:1200}.notice{min-width:320px;max-width:460px;padding:16px 18px;border-radius:14px;background:linear-gradient(180deg,rgba(12,12,18,.98),rgba(8,8,13,.98));border:1px solid rgba(201,168,76,.26);box-shadow:0 18px 44px rgba(0,0,0,.35)}.notice.ok{border-color:rgba(74,222,128,.32)}.notice.err{border-color:rgba(248,113,113,.32)}.notice-title{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}.notice.ok .notice-title{color:var(--green)}.notice.err .notice-title{color:var(--red)}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">Update Profile</div>
+        <div class="sub">Profile editor · document parse · review before save</div>
+      </div>
+      <div class="nav">
+        <a href="/me" class="blue">Back to Concierge</a>
+        <button class="gold" id="saveTopBtn" type="button">Save Profile</button>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="panel">
+        <div class="label">Profile Editor</div>
+        <h1 class="hero" id="aliasHero">Loading…</h1>
+        <div class="muted" id="statusLine">Loading your current Meridian profile.</div>
+        <div class="form-grid" style="margin-top:18px">
+          <div class="field"><label>Display Name</label><input id="display_name" /></div>
+          <div class="field"><label>Email</label><input id="email" type="email" /></div>
+          <div class="field full"><label>Headline</label><input id="headline" placeholder="Example: COO · Data Platform Lead · Manufacturing" /></div>
+          <div class="field full"><label>Biography</label><textarea id="biography" placeholder="Your private Meridian summary."></textarea></div>
+          <div class="field"><label>Roles</label><textarea id="roles" placeholder="COO, Program Executive, Data Platform Lead"></textarea></div>
+          <div class="field"><label>Domains</label><textarea id="domains" placeholder="Manufacturing, Supply Chain, Healthcare"></textarea></div>
+          <div class="field"><label>Networks</label><textarea id="networks" placeholder="Board network, Investor network"></textarea></div>
+          <div class="field"><label>Political / Social</label><textarea id="political_social" placeholder="Conference circuit, nonprofit board, alumni network"></textarea></div>
+          <div class="field"><label>Values</label><textarea id="values" placeholder="Discretion, Trust, Reciprocity"></textarea></div>
+          <div class="field"><label>Experience Years</label><input id="experience_years" type="number" min="0" max="60" /></div>
+          <div class="field full"><label>Assets / Proof Points</label><textarea id="assets" placeholder="Led plant turnaround; Negotiated strategic supplier agreements; ..."></textarea></div>
+          <div class="field full"><label>Attributes JSON</label><textarea id="attributes" placeholder='{"sap": true, "global": true}'></textarea></div>
+        </div>
+        <div class="actions">
+          <button class="btn gold" id="saveBtn" type="button">Save Profile</button>
+          <button class="btn blue" id="reloadBtn" type="button">Reload</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="label">Load Document</div>
+        <div class="upload-box">
+          <div class="muted">Upload a resume, bio, one-pager, PDF, DOCX, TXT, or HTML file. Meridian will parse it into suggested profile fields for review.</div>
+          <div class="actions">
+            <input id="document" type="file" />
+            <button class="btn gold" id="parseBtn" type="button">Parse to Profile</button>
+          </div>
+          <div class="chips" id="parsedChips"></div>
+        </div>
+        <div style="margin-top:18px">
+          <div class="label">Parsed Preview</div>
+          <div class="mono" id="parsedPreview">No document parsed yet.</div>
+          <div class="actions">
+            <button class="btn green" id="applyBtn" type="button">Apply Parsed Fields</button>
+          </div>
+        </div>
+        <div style="margin-top:18px">
+          <div class="label">Recent Documents</div>
+          <div id="docsList" class="muted">No recent documents yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="notice-stack" id="noticeStack"></div>
+<script>
+const GMID="{{GMID}}";
+const $=id=>document.getElementById(id);
+const _adj=['Blue','Red','Green','Swift','Bold','Wise','Fierce','Calm','Silent','Brave','Mystic','Dark','Light','Stormy','Fiery','Icy','Golden','Silver','Shadow','Thunder','Ancient','Eternal','Vivid','Quiet','Loud','Sharp','Dull','Bright','Dim','Hot','Cold','Wet','Dry','Fast','Slow','Heavy','Strong','Weak','Tall','Short','Long','Brief','Deep','Shallow','Wide','Narrow','Old','New','Young','Aged','Pure','Tainted','Clear','Cloudy','Sunny','Rainy','Windy','Still','Wild','Tame','Free','Bound','Happy','Sad','Angry','Peaceful','Chaotic','Orderly','Elegant','Clumsy','Graceful','Awkward','Smart','Clever','Rich','Poor','Full','Empty','Open','Closed','Locked','Unlocked','Safe','Dangerous','Friendly','Hostile','Warm','Cool','Soft','Hard','Smooth','Rough','Shiny','Matte','Vibrant','Faded','Iron','Velvet'];
+const _nou=['Dragon','Phoenix','Tiger','Eagle','Wolf','Fox','Bear','Lion','Hawk','Raven','Shark','Panther','Owl','Falcon','Viper','Cobra','Lynx','Stag','Bull','Horse','Snake','Spider','Scorpion','Whale','Dolphin','Fish','Bird','Cat','Dog','Mouse','Bat','Deer','Elk','Moose','Rabbit','Hare','Squirrel','Beaver','Otter','Seal','Walrus','Penguin','Ostrich','Peacock','Parrot','Crow','Dove','Swan','Goose','Duck','Pig','Cow','Sheep','Goat','Donkey','Mule','Camel','Llama','Elephant','Rhino','Hippo','Giraffe','Zebra','Antelope','Buffalo','Bison','Yak','Monkey','Ape','Gorilla','Chimp','Lemur','Sloth','Koala','Kangaroo','Platypus','Turtle','Tortoise','Lizard','Gecko','Iguana','Alligator','Crocodile','Frog','Toad','Salamander','Newt','Butterfly','Moth','Bee','Wasp','Condor','Manta','Narwhal','Puma','Jaguar','Raptor','Coyote','Badger'];
+function alias(gmid){ const c=(gmid||'').replace(/[^a-fA-F0-9]/g,'').toLowerCase().padEnd(16,'0'); return _adj[parseInt(c.slice(0,8),16)%_adj.length]+_nou[parseInt(c.slice(8,16),16)%_nou.length]; }
+function arr(v){ if(Array.isArray(v)) return v; return []; }
+function splitList(v){ return (v||'').split(/\n|,/).map(x=>x.trim()).filter(Boolean); }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+function notice(title, body, kind='ok'){ const wrap=$('noticeStack'); const n=document.createElement('div'); n.className=`notice ${kind}`; n.innerHTML=`<div class="notice-title">${escapeHtml(title)}</div><div>${escapeHtml(body)}</div>`; wrap.appendChild(n); setTimeout(()=>{n.style.opacity='0'; n.style.transform='translateY(-6px)';}, 2600); setTimeout(()=>n.remove(), 3200); }
+async function api(url, opts={}){ const res = await fetch(url, opts); if(!res.ok) throw new Error(await res.text()); const ct=res.headers.get('content-type')||''; return ct.includes('application/json') ? res.json() : res.text(); }
+let parsedCache = null;
+function fillForm(p){ $('display_name').value=p.display_name||''; $('email').value=p.email||''; $('headline').value=p.headline||''; $('biography').value=p.biography||''; $('roles').value=arr(p.roles).join(', '); $('domains').value=arr(p.domains).join(', '); $('networks').value=arr(p.networks).join(', '); $('political_social').value=arr(p.political_social).join(', '); $('values').value=arr(p.values).join(', '); $('experience_years').value=p.experience_years||0; $('assets').value=arr(p.assets).join('\n'); $('attributes').value=JSON.stringify(p.attributes||{}, null, 2); $('aliasHero').textContent=alias(GMID); $('statusLine').textContent=`${p.status||'member'} · GMID ${GMID.slice(0,4)}····${GMID.slice(-4)}`; }
+function renderDocs(docs){ const el=$('docsList'); if(!docs||!docs.length){ el.innerHTML='No recent documents yet.'; return; } el.innerHTML=docs.map(d=>`<div class="doc-item"><div class="doc-title">${escapeHtml(d.filename||'Document')}</div><div class="doc-meta">${escapeHtml(d.source_type||'upload')} · ${new Date(d.uploaded_at).toLocaleString()}</div></div>`).join(''); }
+function renderParsed(parsed){ if(!parsed){ $('parsedPreview').textContent='No document parsed yet.'; $('parsedChips').innerHTML=''; return; } const chips=[]; for(const k of ['roles','domains','networks','values']) arr(parsed[k]).slice(0,6).forEach(v=>chips.push(`<span class="chip">${escapeHtml(v)}</span>`)); $('parsedChips').innerHTML=chips.join(''); $('parsedPreview').textContent=(parsed.extracted_preview||'').slice(0,1200) || 'No extracted preview available.'; }
+async function load(){ const res=await api('/api/profile/me'); fillForm(res.profile); renderDocs(res.documents||[]); renderParsed(null); }
+function applyParsed(){ if(!parsedCache) return notice('Nothing parsed', 'Upload and parse a document first.', 'err'); const p=parsedCache; if(arr(p.roles).length) $('roles').value = Array.from(new Set([...splitList($('roles').value), ...p.roles])).join(', '); if(arr(p.domains).length) $('domains').value = Array.from(new Set([...splitList($('domains').value), ...p.domains])).join(', '); if(arr(p.networks).length) $('networks').value = Array.from(new Set([...splitList($('networks').value), ...p.networks])).join(', '); if(arr(p.values).length) $('values').value = Array.from(new Set([...splitList($('values').value), ...p.values])).join(', '); if(arr(p.assets).length) $('assets').value = Array.from(new Set([...splitList($('assets').value), ...p.assets])).join('\n'); if((p.experience_years||0) > (+$('experience_years').value||0)) $('experience_years').value = p.experience_years||0; try { const current = JSON.parse($('attributes').value || '{}'); $('attributes').value = JSON.stringify({...current, ...(p.attributes||{})}, null, 2);} catch { $('attributes').value = JSON.stringify(p.attributes||{}, null, 2); }
+ notice('Parsed fields applied', 'Review the mapped content, then save your profile.'); }
+async function save(){ let attrs={}; try{ attrs = JSON.parse($('attributes').value || '{}'); } catch(e){ return notice('Invalid attributes JSON', 'Fix the Attributes JSON field before saving.', 'err'); }
+ const payload={ display_name:$('display_name').value, email:$('email').value, headline:$('headline').value, biography:$('biography').value, roles:splitList($('roles').value), domains:splitList($('domains').value), networks:splitList($('networks').value), political_social:splitList($('political_social').value), values:splitList($('values').value), assets:splitList($('assets').value), experience_years:+$('experience_years').value||0, attributes:attrs };
+ await api('/api/profile/me', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); notice('Profile updated', 'Your Meridian profile was saved successfully.'); await load(); }
+async function parseDoc(){ const file=$('document').files[0]; if(!file) return notice('No document selected', 'Choose a file first.', 'err'); const fd=new FormData(); fd.append('document', file); const res = await fetch('/api/profile/me/upload', {method:'POST', body:fd}); if(!res.ok) return notice('Parse failed', await res.text(), 'err'); const data=await res.json(); parsedCache=data.parsed; renderParsed(parsedCache); notice('Document parsed', data.message || 'Review and apply the suggested profile fields.'); await load(); }
+$('applyBtn').addEventListener('click', applyParsed); $('saveBtn').addEventListener('click', save); $('saveTopBtn').addEventListener('click', save); $('reloadBtn').addEventListener('click', load); $('parseBtn').addEventListener('click', parseDoc); load().catch(err=>notice('Load failed', String(err), 'err'));
+</script>
+</body>
+</html>

@@ -387,6 +387,13 @@ def rankings_page(): return HTMLResponse(open(os.path.join(BASE_DIR, "rankings.h
 @app.get("/alias", response_class=HTMLResponse)
 def alias_page(): return HTMLResponse(open(os.path.join(BASE_DIR, "GMID.html"), "r", encoding="utf-8").read())
 
+@app.get("/profile/edit", response_class=HTMLResponse)
+def profile_edit_page(request: Request):
+    gmid = request.session.get("member_gmid")
+    if not gmid:
+        return RedirectResponse(url="/", status_code=302)
+    return HTMLResponse(open(os.path.join(BASE_DIR, "profile_editor.html"), "r", encoding="utf-8").read().replace("{{GMID}}", gmid))
+
 @app.get("/members", response_class=HTMLResponse)
 def members_page(request: Request):
     if not request.session.get("member_gmid"):
@@ -514,6 +521,109 @@ def api_profile(gmid: str):
     current = next((p for p in fetch_profiles(5000) if p["gmid"] == gmid), None)
     if not current: raise HTTPException(status_code=404, detail="profile not found")
     return JSONResponse(content=jsonable_encoder({"ok": True, "profile": current}))
+
+@app.get("/api/profile/me")
+def api_profile_me(request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    conn = get_conn()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""SELECT m.gmid, m.display_name, m.email, m.status, m.is_system,
+                                  p.headline, p.biography, p.domains_json AS domains, p.roles_json AS roles,
+                                  p.experience_years, p.networks_json AS networks, p.political_social_json AS political_social,
+                                  p.assets_json AS assets, p.values_json AS values, p.attributes_json AS attributes,
+                                  p.strength_score, p.updated_at
+                           FROM members m
+                           JOIN member_profiles p ON p.member_id = m.id
+                           WHERE m.gmid=%s""", (member["gmid"],))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="profile not found")
+            cur.execute("""SELECT id, filename, source_type, parsed_json, uploaded_at
+                           FROM member_documents md
+                           JOIN members m ON m.id = md.member_id
+                           WHERE m.gmid=%s
+                           ORDER BY uploaded_at DESC
+                           LIMIT 10""", (member["gmid"],))
+            docs = cur.fetchall()
+            return JSONResponse(content=jsonable_encoder({"ok": True, "profile": row, "documents": docs, "alias": alias_from_gmid(member["gmid"])}))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/profile/me")
+async def api_profile_me_update(request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    data = await request.json()
+    display_name = (data.get("display_name") or member["display_name"] or "").strip() or member["display_name"]
+    email = (data.get("email") or member.get("email") or "").strip().lower() or None
+    headline = (data.get("headline") or "").strip() or None
+    biography = (data.get("biography") or "").strip() or None
+    domains = normalize_list(data.get("domains"))
+    roles = normalize_list(data.get("roles"))
+    networks = normalize_list(data.get("networks"))
+    political_social = normalize_list(data.get("political_social"))
+    assets = normalize_list(data.get("assets"))
+    values = normalize_list(data.get("values"))
+    experience_years = int(data.get("experience_years") or 0)
+    attributes = data.get("attributes") or {}
+    profile = {"domains": domains, "roles": roles, "experience_years": experience_years, "networks": networks, "assets": assets, "values": values, "attributes": attributes}
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id FROM members WHERE gmid=%s", (member["gmid"],))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="member not found")
+            member_id = row["id"]
+            cur.execute("UPDATE members SET display_name=%s, email=%s, status='active' WHERE id=%s", (display_name, email, member_id))
+            cur.execute("""UPDATE member_profiles
+                           SET headline=%s, biography=%s, domains_json=%s, roles_json=%s, experience_years=%s,
+                               networks_json=%s, political_social_json=%s, assets_json=%s, values_json=%s,
+                               attributes_json=%s, strength_score=%s, updated_at=NOW()
+                           WHERE member_id=%s""",
+                        (headline, biography, Json(domains), Json(roles), experience_years, Json(networks), Json(political_social), Json(assets), Json(values), Json(attributes), profile_strength_score(profile), member_id))
+        return JSONResponse(content=jsonable_encoder({"ok": True, "status": "active"}))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/profile/me/upload")
+async def api_profile_me_upload(request: Request, document: UploadFile = File(...)):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    raw = await document.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty file")
+    extracted = extract_text_from_upload(document, raw)
+    parsed = parse_profile_text(extracted)
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id FROM members WHERE gmid=%s", (member["gmid"],))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="member not found")
+            member_id = row["id"]
+            cur.execute("""INSERT INTO member_documents (member_id, filename, source_type, extracted_text, parsed_json)
+                           VALUES (%s,%s,%s,%s,%s) RETURNING id, uploaded_at""",
+                        (member_id, document.filename or "upload", "upload", extracted, Json(parsed)))
+            saved = cur.fetchone()
+        return JSONResponse(content=jsonable_encoder({
+            "ok": True,
+            "document_id": saved["id"],
+            "uploaded_at": saved["uploaded_at"],
+            "filename": document.filename or "upload",
+            "parsed": parsed,
+            "extracted_preview": parsed.get("extracted_preview", ""),
+            "message": "Document parsed. Review and save the mapped profile fields."
+        }))
+    finally:
+        put_conn(conn)
+
 
 @app.post("/api/profile/create")
 async def api_profile_create(request: Request):
