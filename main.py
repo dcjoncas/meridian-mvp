@@ -428,7 +428,8 @@ def fetch_profiles(limit: int = 250):
                            FROM members m
                            JOIN member_profiles p ON p.member_id = m.id
                            WHERE m.status IN ('active','pending_vetting')
-                           ORDER BY m.is_system DESC, p.strength_score DESC, p.experience_years DESC, m.created_at DESC
+                             AND COALESCE(m.alias_name, '') <> ''
+                           ORDER BY m.is_system DESC, p.strength_score DESC, p.experience_years DESC, m.created_at DESC, m.id ASC
                            LIMIT %s""", (limit,))
             return cur.fetchall()
     finally:
@@ -441,7 +442,7 @@ def canonical_visible_member_count() -> int:
             cur.execute("""SELECT COUNT(*)
                            FROM members m
                            JOIN member_profiles p ON p.member_id = m.id
-                           WHERE m.status IN ('active','pending_vetting')""")
+                           WHERE m.status IN ('active','pending_vetting') AND COALESCE(m.alias_name, '') <> ''""")
             return int(cur.fetchone()[0])
     finally:
         put_conn(conn)
@@ -605,12 +606,6 @@ async def api_auth_change_password(request: Request):
 @app.get("/api/profiles")
 def api_profiles(limit: int = 250): return JSONResponse(content=jsonable_encoder({"count": limit, "profiles": fetch_profiles(limit)}))
 
-@app.get("/api/profile/{gmid}")
-def api_profile(gmid: str):
-    current = next((p for p in fetch_profiles(5000) if p["gmid"] == gmid), None)
-    if not current: raise HTTPException(status_code=404, detail="profile not found")
-    return JSONResponse(content=jsonable_encoder({"ok": True, "profile": current}))
-
 @app.get("/api/profile/me")
 def api_profile_me(request: Request):
     member = get_current_member(request)
@@ -618,71 +613,78 @@ def api_profile_me(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     conn = get_conn()
     try:
-        with conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("SELECT id, gmid, display_name, email, status, is_system, alias_name FROM members WHERE gmid=%s", (member["gmid"],))
-                member_row = cur.fetchone()
-                if not member_row:
-                    raise HTTPException(status_code=404, detail="member not found")
-                member_id = member_row["id"]
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, gmid, display_name, email, status, is_system, alias_name FROM members WHERE gmid=%s", (member["gmid"],))
+            member_row = cur.fetchone()
+            if not member_row:
+                raise HTTPException(status_code=404, detail="member not found")
+            member_id = member_row["id"]
 
-                cur.execute("INSERT INTO member_profiles (member_id) VALUES (%s) ON CONFLICT (member_id) DO NOTHING", (member_id,))
+            cur.execute("INSERT INTO member_profiles (member_id) VALUES (%s) ON CONFLICT (member_id) DO NOTHING", (member_id,))
+            conn.commit()
 
-                cur.execute("""SELECT
-                                  headline,
-                                  biography,
-                                  domains_json AS domains,
-                                  roles_json AS roles,
-                                  experience_years,
-                                  networks_json AS networks,
-                                  political_social_json AS political_social,
-                                  assets_json AS assets,
-                                  values_json AS values,
-                                  attributes_json AS attributes,
-                                  strength_score,
-                                  updated_at
-                               FROM member_profiles
-                               WHERE member_id=%s""", (member_id,))
-                profile_row = cur.fetchone() or {}
+            cur.execute("""SELECT
+                              headline,
+                              biography,
+                              domains_json AS domains,
+                              roles_json AS roles,
+                              experience_years,
+                              networks_json AS networks,
+                              political_social_json AS political_social,
+                              assets_json AS assets,
+                              values_json AS values,
+                              attributes_json AS attributes,
+                              strength_score,
+                              updated_at
+                           FROM member_profiles
+                           WHERE member_id=%s""", (member_id,))
+            profile_row = cur.fetchone() or {}
 
-                profile = {
-                    "gmid": member_row["gmid"],
-                    "alias_name": member_row.get("alias_name"),
-                    "display_name": member_row.get("display_name"),
-                    "email": member_row.get("email"),
-                    "status": member_row.get("status"),
-                    "is_system": member_row.get("is_system"),
-                    "headline": profile_row.get("headline"),
-                    "biography": profile_row.get("biography"),
-                    "domains": profile_row.get("domains") or [],
-                    "roles": profile_row.get("roles") or [],
-                    "experience_years": profile_row.get("experience_years") or 0,
-                    "networks": profile_row.get("networks") or [],
-                    "political_social": profile_row.get("political_social") or [],
-                    "assets": profile_row.get("assets") or [],
-                    "values": profile_row.get("values") or [],
-                    "attributes": profile_row.get("attributes") or {},
-                    "strength_score": profile_row.get("strength_score") or 0,
-                    "updated_at": profile_row.get("updated_at"),
-                }
+            profile = {
+                "gmid": member_row["gmid"],
+                "alias_name": member_row.get("alias_name"),
+                "display_name": member_row.get("display_name"),
+                "email": member_row.get("email"),
+                "status": member_row.get("status"),
+                "is_system": member_row.get("is_system"),
+                "headline": profile_row.get("headline"),
+                "biography": profile_row.get("biography"),
+                "domains": profile_row.get("domains") or [],
+                "roles": profile_row.get("roles") or [],
+                "experience_years": profile_row.get("experience_years") or 0,
+                "networks": profile_row.get("networks") or [],
+                "political_social": profile_row.get("political_social") or [],
+                "assets": profile_row.get("assets") or [],
+                "values": profile_row.get("values") or [],
+                "attributes": profile_row.get("attributes") or {},
+                "strength_score": profile_row.get("strength_score") or 0,
+                "updated_at": profile_row.get("updated_at"),
+            }
 
+            docs = []
+            try:
+                cur.execute("""SELECT id, filename, COALESCE(source_type, content_type, 'upload') AS source_type, parsed_json, uploaded_at
+                               FROM member_documents
+                               WHERE member_id=%s
+                               ORDER BY uploaded_at DESC
+                               LIMIT 10""", (member_id,))
+                docs = cur.fetchall() or []
+            except Exception:
+                conn.rollback()
                 docs = []
-                try:
-                    cur.execute("""SELECT id, filename, COALESCE(source_type, content_type, 'upload') AS source_type, parsed_json, uploaded_at
-                                   FROM member_documents
-                                   WHERE member_id=%s
-                                   ORDER BY uploaded_at DESC
-                                   LIMIT 10""", (member_id,))
-                    docs = cur.fetchall() or []
-                except Exception:
-                    conn.rollback()
-                    with conn.cursor(cursor_factory=RealDictCursor) as retry_cur:
-                        retry_cur.execute("INSERT INTO member_profiles (member_id) VALUES (%s) ON CONFLICT (member_id) DO NOTHING", (member_id,))
-                    docs = []
 
-                return JSONResponse(content=jsonable_encoder({"ok": True, "profile": profile, "documents": docs, "alias": member_row.get("alias_name") or alias_from_gmid(member["gmid"])}))
+            return JSONResponse(content=jsonable_encoder({"ok": True, "profile": profile, "documents": docs, "alias": member_row.get("alias_name") or alias_from_gmid(member["gmid"])}))
     finally:
         put_conn(conn)
+
+@app.get("/api/profile/{gmid}")
+def api_profile(gmid: str):
+    if gmid == "me":
+        raise HTTPException(status_code=400, detail="use /api/profile/me")
+    current = next((p for p in fetch_profiles(5000) if p["gmid"] == gmid), None)
+    if not current:
+        raise HTTPException(status_code=404, detail="profile not found")
+    return JSONResponse(content=jsonable_encoder({"ok": True, "profile": current}))
 
 @app.post("/api/profile/me")
 async def api_profile_me_update(request: Request):

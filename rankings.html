@@ -115,7 +115,7 @@
     function mask(gmid){ const s=(gmid||'').replace(/[^a-fA-F0-9]/g,''); return s.length<8 ? s : s.substring(0,4)+'·'.repeat(Math.max(4,s.length-8))+s.substring(s.length-4); }
 
     async function loadRankings(){
-      const [db, rankings] = await Promise.all([api('/api/debug/db'), api('/api/rankings?limit=500')]);
+      const [db, rankings] = await Promise.all([api('/api/debug/db'), api('/api/rankings?limit=5000')]);
       const items = rankings.items || [];
       const leader = items[0] || null;
       const avgComposite = items.length ? items.reduce((a,x)=>a + Number(x.composite_score || 0), 0) / items.length : 0;

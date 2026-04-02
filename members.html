@@ -86,7 +86,7 @@ function render(){
 (async function init(){
   const me = await api('/api/auth/me');
   if(!me.authenticated){ window.location.href = '/'; return; }
-  const res = await api('/api/members/discover?limit=200');
+  const res = await api('/api/members/discover?limit=5000');
   allItems = res.items || [];
   const domains = Array.from(new Set(allItems.flatMap(x => x.domains || []))).sort();
   $('domain').innerHTML = '<option value="">All domains</option>' + domains.map(d => `<option>${esc(d)}</option>`).join('');
