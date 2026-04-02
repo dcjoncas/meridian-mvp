@@ -1,5 +1,5 @@
 
-import os, io, re, html, hashlib, random, secrets
+import os, io, re, html, hashlib, random, secrets, json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -21,6 +21,17 @@ if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is required for the Postgres build.")
 
 pool = SimpleConnectionPool(1, 10, DATABASE_URL)
+
+
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+OPENAI_PROJECT_ID = os.getenv("OPENAI_PROJECT_ID", "")
+
 
 def get_conn(): return pool.getconn()
 def put_conn(conn): pool.putconn(conn)
@@ -184,6 +195,276 @@ def parse_profile_text(text: str) -> Dict[str, Any]:
         if len(assets) >= 12: break
     attributes = {k: True for k in ["sap","oracle","azure","aws","board","global","confidential"] if k in lower}
     return {"domains": domains, "roles": roles, "networks": networks, "values": values, "assets": assets, "experience_years": years, "attributes": attributes, "extracted_preview": text[:1200]}
+
+def match_dimension_scores(query: str, p: Dict[str, Any]) -> Dict[str, float]:
+    exp = int(p.get("experience_years") or 0)
+    wanted = extract_years_from_query(query)
+    experience_score = max(0, 14 - min(14, abs(exp - wanted))) if wanted is not None else min(8, exp // 2)
+    profile_quality = round(profile_strength_score(p) * 0.12, 2)
+    return {
+        "domains": weighted_hits(query, p.get("domains", []), 18, 6),
+        "roles": weighted_hits(query, p.get("roles", []), 16, 5),
+        "networks": weighted_hits(query, p.get("networks", []), 10, 3),
+        "values": weighted_hits(query, p.get("values", []), 7, 2),
+        "assets": weighted_hits(query, (p.get("assets") or [])[:20], 4, 1),
+        "experience": experience_score,
+        "profile_quality": profile_quality,
+    }
+
+
+def describe_match_reasons(query: str, p: Dict[str, Any]) -> List[str]:
+    q_tokens = set(tokenize(query))
+    reasons = []
+    domains = p.get("domains") or []
+    roles = p.get("roles") or []
+    networks = p.get("networks") or []
+    values = p.get("values") or []
+    assets = p.get("assets") or []
+
+    domain_hits = [d for d in domains if set(tokenize(d)) & q_tokens or d.lower() in query.lower()]
+    role_hits = [r for r in roles if set(tokenize(r)) & q_tokens or r.lower() in query.lower()]
+    network_hits = [n for n in networks if set(tokenize(n)) & q_tokens or n.lower() in query.lower()]
+    value_hits = [v for v in values if set(tokenize(v)) & q_tokens or v.lower() in query.lower()]
+
+    if domain_hits:
+        reasons.append(f"Strong domain overlap in {', '.join(domain_hits[:3])}.")
+    elif domains:
+        reasons.append(f"Relevant domain coverage includes {', '.join(domains[:3])}.")
+
+    if role_hits:
+        reasons.append(f"Role alignment with {', '.join(role_hits[:2])}.")
+    elif roles:
+        reasons.append(f"Likely fit from role history including {', '.join(roles[:2])}.")
+
+    exp = int(p.get("experience_years") or 0)
+    if exp:
+        reasons.append(f"Estimated experience depth: {exp} years.")
+
+    if network_hits:
+        reasons.append(f"Network overlap through {', '.join(network_hits[:2])}.")
+    elif networks:
+        reasons.append(f"Potential warm path via {', '.join(networks[:2])}.")
+
+    if value_hits:
+        reasons.append(f"Value signal match on {', '.join(value_hits[:2])}.")
+
+    if assets:
+        reasons.append(f"Proof point: {assets[0]}")
+
+    return reasons[:5]
+
+
+def build_match_result(score: int, p: Dict[str, Any]) -> Dict[str, Any]:
+    reasons = describe_match_reasons("", p)
+    return {
+        "score": int(score),
+        "profile": {
+            "gmid": p["gmid"],
+            "alias_name": p.get("alias_name") or alias_from_gmid(p["gmid"]),
+            "display_name": p["display_name"],
+            "headline": p.get("headline") or "",
+            "biography": p.get("biography") or "",
+            "domains": p.get("domains") or [],
+            "roles": p.get("roles") or [],
+            "experience_years": p.get("experience_years") or 0,
+            "assets_preview": (p.get("assets") or [])[:6],
+            "networks": p.get("networks") or [],
+            "values": p.get("values") or [],
+            "is_system": p.get("is_system"),
+            "strength_score": profile_strength_score(p)
+        },
+        "reasons": reasons,
+        "dimension_scores": match_dimension_scores("", p),
+    }
+
+
+def make_match_payload(query: str, requester: str, limit: int = 10) -> Dict[str, Any]:
+    profiles = [
+        p for p in fetch_profiles(5000)
+        if p["gmid"] != requester
+        and p.get("status") in ("active", "pending_vetting")
+        and p.get("status") != "ghosted"
+    ]
+    scored = []
+    for p in profiles:
+        s = score_profile(query, p)
+        if s > 0:
+            scored.append((s, p))
+    scored.sort(key=lambda x: (x[0], profile_strength_score(x[1])), reverse=True)
+    out = []
+    for s, p in scored[:limit]:
+        out.append({
+            "score": int(s),
+            "profile": {
+                "gmid": p["gmid"],
+                "alias_name": p.get("alias_name") or alias_from_gmid(p["gmid"]),
+                "display_name": p["display_name"],
+                "headline": p.get("headline") or "",
+                "biography": p.get("biography") or "",
+                "domains": p.get("domains") or [],
+                "roles": p.get("roles") or [],
+                "experience_years": p.get("experience_years") or 0,
+                "assets_preview": (p.get("assets") or [])[:6],
+                "networks": p.get("networks") or [],
+                "values": p.get("values") or [],
+                "is_system": p.get("is_system"),
+                "strength_score": profile_strength_score(p)
+            },
+            "reasons": describe_match_reasons(query, p),
+            "dimension_scores": match_dimension_scores(query, p),
+        })
+    return {"ok": True, "query": query, "count": len(out), "results": out, "pool": "all_active_members_excluding_ghosts"}
+
+
+def ai_shortlist_context(query: str, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    context = []
+    for idx, item in enumerate(results[:8], start=1):
+        profile = item.get("profile") or {}
+        context.append({
+            "rank": idx,
+            "alias": profile.get("alias_name") or alias_from_gmid(profile.get("gmid", "")),
+            "gmid": profile.get("gmid"),
+            "score": item.get("score"),
+            "headline": profile.get("headline") or "",
+            "biography": profile.get("biography") or "",
+            "roles": profile.get("roles") or [],
+            "domains": profile.get("domains") or [],
+            "networks": profile.get("networks") or [],
+            "values": profile.get("values") or [],
+            "experience_years": profile.get("experience_years") or 0,
+            "strength_score": profile.get("strength_score") or 0,
+            "assets_preview": profile.get("assets_preview") or [],
+            "reasons": item.get("reasons") or [],
+            "dimension_scores": item.get("dimension_scores") or {},
+        })
+    return context
+
+
+def deterministic_ai_summary(query: str, shortlist: List[Dict[str, Any]]) -> Dict[str, Any]:
+    if not shortlist:
+        return {
+            "summary": "No shortlist is available yet. Run a match search first.",
+            "top_candidates": [],
+            "differences": [],
+            "next_questions": ["What role do you need most?", "Which industry matters most?"],
+            "source": "deterministic_fallback",
+        }
+    top = shortlist[:3]
+    bullets = []
+    top_candidates = []
+    for person in top:
+        role = ", ".join(person.get("roles")[:2]) or "Meridian member"
+        domain = ", ".join(person.get("domains")[:3]) or "broad domain coverage"
+        rationale = " ".join(person.get("reasons")[:3])
+        bullets.append(f"{person['alias']} is a strong fit for {query.lower()} because of {role} experience across {domain}. {rationale}".strip())
+        top_candidates.append({
+            "alias": person["alias"],
+            "gmid": person["gmid"],
+            "score": person.get("score"),
+            "rationale": rationale or f"Profile suggests fit via {domain}."
+        })
+    differences = []
+    if len(top) >= 2:
+        differences.append(f"{top[0]['alias']} appears strongest overall, while {top[1]['alias']} may be better if you prioritize {', '.join((top[1].get('domains') or ['domain specificity'])[:2])}.")
+    if len(top) >= 3:
+        differences.append(f"{top[2]['alias']} looks more differentiated around {', '.join((top[2].get('networks') or ['network access'])[:2])}.")
+    next_questions = [
+        "Do you care more about operator depth, investor reach, or board access?",
+        "Should Meridian favor discretion, warm network path, or direct domain expertise?",
+        "Which industry or geography should be treated as mandatory?",
+    ]
+    return {
+        "summary": " ".join(bullets[:2]),
+        "top_candidates": top_candidates,
+        "differences": differences,
+        "next_questions": next_questions,
+        "source": "deterministic_fallback",
+    }
+
+
+def get_openai_client():
+    if not OPENAI_API_KEY or OpenAI is None:
+        return None
+    kwargs = {"api_key": OPENAI_API_KEY}
+    if OPENAI_PROJECT_ID:
+        kwargs["project"] = OPENAI_PROJECT_ID
+    try:
+        return OpenAI(**kwargs)
+    except Exception:
+        return None
+
+
+def ai_json_response(system_prompt: str, user_payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    client = get_openai_client()
+    if client is None:
+        return None
+    try:
+        response = client.responses.create(
+            model=OPENAI_MODEL,
+            input=[
+                {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+                {"role": "user", "content": [{"type": "text", "text": json.dumps(user_payload, ensure_ascii=False)}]},
+            ],
+            text={"format": {"type": "json_object"}},
+        )
+        raw = getattr(response, "output_text", None)
+        if not raw:
+            return None
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
+def generate_ai_match_summary(query: str, results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    shortlist = ai_shortlist_context(query, results)
+    fallback = deterministic_ai_summary(query, shortlist)
+    system_prompt = """You are Meridian AI Concierge. You must stay grounded only in the shortlist profiles provided. Never invent facts, identities, relationships, or companies beyond the supplied data. Return JSON with keys: summary, top_candidates, differences, next_questions, confidence_note. top_candidates should be an array of objects with alias, gmid, score, rationale. differences and next_questions should be arrays of short strings."""
+    user_payload = {"query": query, "shortlist": shortlist}
+    data = ai_json_response(system_prompt, user_payload)
+    if not isinstance(data, dict):
+        return fallback
+    data.setdefault("source", "openai")
+    data.setdefault("summary", fallback["summary"])
+    data.setdefault("top_candidates", fallback["top_candidates"])
+    data.setdefault("differences", fallback["differences"])
+    data.setdefault("next_questions", fallback["next_questions"])
+    return data
+
+
+def deterministic_ai_chat(query: str, shortlist: List[Dict[str, Any]], question: str) -> Dict[str, Any]:
+    if not shortlist:
+        return {"answer": "Run a match search first so Meridian can narrow the shortlist before answering follow-up questions.", "suggested_focus": []}
+    q = question.lower()
+    ranked = shortlist
+    if "discreet" in q or "discretion" in q:
+        ranked = sorted(shortlist, key=lambda x: any("discretion" in r.lower() or "warm path" in r.lower() for r in x.get("reasons", [])), reverse=True)
+    elif "network" in q or "warm" in q or "intro" in q:
+        ranked = sorted(shortlist, key=lambda x: len(x.get("networks") or []), reverse=True)
+    elif "operator" in q or "operat" in q:
+        ranked = sorted(shortlist, key=lambda x: len([r for r in x.get("roles") or [] if any(tok in r.lower() for tok in ["coo","director","lead","operations","program"]) ]), reverse=True)
+    best = ranked[0]
+    answer = f"Based on the current shortlist, {best['alias']} looks strongest for this follow-up because of {', '.join((best.get('roles') or ['profile fit'])[:2])}, domain coverage in {', '.join((best.get('domains') or ['relevant areas'])[:3])}, and signals such as {' '.join((best.get('reasons') or [])[:2])}."
+    suggested_focus = [x['alias'] for x in ranked[:3]]
+    return {"answer": answer, "suggested_focus": suggested_focus, "source": "deterministic_fallback"}
+
+
+def generate_ai_match_chat(query: str, results: List[Dict[str, Any]], messages: List[Dict[str, str]]) -> Dict[str, Any]:
+    shortlist = ai_shortlist_context(query, results)
+    latest_user = ""
+    for m in reversed(messages or []):
+        if (m.get("role") or "").lower() == "user":
+            latest_user = m.get("content") or ""
+            break
+    fallback = deterministic_ai_chat(query, shortlist, latest_user)
+    system_prompt = """You are Meridian AI Concierge. Answer only from the provided shortlist. Do not mention people outside the shortlist. Do not invent facts. Be concise, high-signal, and comparison-oriented. Return JSON with keys: answer, suggested_focus, confidence_note."""
+    user_payload = {"query": query, "shortlist": shortlist, "messages": messages[-8:]}
+    data = ai_json_response(system_prompt, user_payload)
+    if not isinstance(data, dict):
+        return fallback
+    data.setdefault("source", "openai")
+    data.setdefault("answer", fallback["answer"])
+    data.setdefault("suggested_focus", fallback["suggested_focus"])
+    return data
 
 def init_schema():
     conn = get_conn()
@@ -825,21 +1106,39 @@ async def api_profile_create(request: Request):
 
 @app.post("/api/match")
 async def api_match(request: Request):
-    data = await request.json(); q = (data.get("query") or "").strip(); requester = (data.get("requester_gmid") or "").strip()
-    if not q: raise HTTPException(status_code=400, detail="query is required")
-    profiles = [
-        p for p in fetch_profiles(5000)
-        if p["gmid"] != requester
-        and p.get("status") in ("active", "pending_vetting")
-        and p.get("status") != "ghosted"
-    ]
-    scored = [(score_profile(q,p),p) for p in profiles]
-    scored = [(s,p) for s,p in scored if s > 0]
-    scored.sort(key=lambda x:(x[0], profile_strength_score(x[1])), reverse=True)
-    out=[]
-    for s,p in scored[:10]:
-        out.append({"score": int(s), "profile":{"gmid":p["gmid"],"display_name":p["display_name"],"domains":p["domains"],"roles":p["roles"],"experience_years":p["experience_years"],"assets_preview":(p["assets"] or [])[:6],"networks":p["networks"],"is_system":p["is_system"],"strength_score": profile_strength_score(p)}})
-    return JSONResponse(content=jsonable_encoder({"ok": True, "query": q, "count": len(out), "results": out, "pool": "all_active_members_excluding_ghosts"}))
+    data = await request.json()
+    q = (data.get("query") or "").strip()
+    requester = (data.get("requester_gmid") or "").strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="query is required")
+    return JSONResponse(content=jsonable_encoder(make_match_payload(q, requester, 10)))
+
+@app.post("/api/ai/match-summary")
+async def api_ai_match_summary(request: Request):
+    data = await request.json()
+    q = (data.get("query") or "").strip()
+    requester = (data.get("requester_gmid") or "").strip()
+    results = data.get("results") or []
+    if not q:
+        raise HTTPException(status_code=400, detail="query is required")
+    if not results:
+        results = make_match_payload(q, requester, 8)["results"]
+    summary = generate_ai_match_summary(q, results)
+    return JSONResponse(content=jsonable_encoder({"ok": True, "query": q, "summary": summary, "results_used": len(results)}))
+
+@app.post("/api/ai/match-chat")
+async def api_ai_match_chat(request: Request):
+    data = await request.json()
+    q = (data.get("query") or "").strip()
+    requester = (data.get("requester_gmid") or "").strip()
+    results = data.get("results") or []
+    messages = data.get("messages") or []
+    if not q:
+        raise HTTPException(status_code=400, detail="query is required")
+    if not results:
+        results = make_match_payload(q, requester, 8)["results"]
+    answer = generate_ai_match_chat(q, results, messages)
+    return JSONResponse(content=jsonable_encoder({"ok": True, "query": q, "answer": answer}))
 
 @app.post("/api/ping")
 async def api_ping(request: Request):

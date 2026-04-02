@@ -144,6 +144,20 @@
             <button class="btn gold" id="runMatchBtn" type="button">Search Matches</button>
           </div>
           <div class="muted-note" style="margin-top:12px">Concierge uses your full Meridian member base for demo search. Only ghosted members are excluded.</div>
+          <div class="search-actions">
+            <button class="btn blue" id="runAiSummaryBtn" type="button">AI Concierge Summary</button>
+            <button class="btn blue" id="openAiChatBtn" type="button">Ask AI About These Matches</button>
+          </div>
+          <div id="aiSummaryCard" class="summary-card"></div>
+          <div id="aiChatShell" class="chat-shell">
+            <div class="detail-label">Shortlist AI Chat</div>
+            <div class="muted-note">Grounded only in the current shortlist. Ask Meridian AI to compare, narrow, and explain the best fit.</div>
+            <div id="aiChatTranscript" class="chat-transcript"></div>
+            <div class="chat-input-row">
+              <textarea class="chat-input" id="aiChatInput" placeholder="Example: Which of these is strongest for discreet PE-backed operating executive introductions?"></textarea>
+              <button class="btn gold" id="sendAiChatBtn" type="button">Ask Meridian AI</button>
+            </div>
+          </div>
           <div id="matchResults" class="match-list"></div>
         </div>
 
@@ -176,7 +190,7 @@
     const $ = id => document.getElementById(id);
     const _adj=['Blue','Red','Green','Swift','Bold','Wise','Fierce','Calm','Silent','Brave','Mystic','Dark','Light','Stormy','Fiery','Icy','Golden','Silver','Shadow','Thunder','Ancient','Eternal','Vivid','Quiet','Loud','Sharp','Dull','Bright','Dim','Hot','Cold','Wet','Dry','Fast','Slow','Heavy','Strong','Weak','Tall','Short','Long','Brief','Deep','Shallow','Wide','Narrow','Old','New','Young','Aged','Pure','Tainted','Clear','Cloudy','Sunny','Rainy','Windy','Still','Wild','Tame','Free','Bound','Happy','Sad','Angry','Peaceful','Chaotic','Orderly','Elegant','Clumsy','Graceful','Awkward','Smart','Clever','Rich','Poor','Full','Empty','Open','Closed','Locked','Unlocked','Safe','Dangerous','Friendly','Hostile','Warm','Cool','Soft','Hard','Smooth','Rough','Shiny','Matte','Vibrant','Faded','Iron','Velvet'];
     const _nou=['Dragon','Phoenix','Tiger','Eagle','Wolf','Fox','Bear','Lion','Hawk','Raven','Shark','Panther','Owl','Falcon','Viper','Cobra','Lynx','Stag','Bull','Horse','Snake','Spider','Scorpion','Whale','Dolphin','Fish','Bird','Cat','Dog','Mouse','Bat','Deer','Elk','Moose','Rabbit','Hare','Squirrel','Beaver','Otter','Seal','Walrus','Penguin','Ostrich','Peacock','Parrot','Crow','Dove','Swan','Goose','Duck','Pig','Cow','Sheep','Goat','Donkey','Mule','Camel','Llama','Elephant','Rhino','Hippo','Giraffe','Zebra','Antelope','Buffalo','Bison','Yak','Monkey','Ape','Gorilla','Chimp','Lemur','Sloth','Koala','Kangaroo','Platypus','Turtle','Tortoise','Lizard','Gecko','Iguana','Alligator','Crocodile','Frog','Toad','Salamander','Newt','Butterfly','Moth','Bee','Wasp','Condor','Manta','Narwhal','Puma','Jaguar','Raptor','Coyote','Badger'];
-    let currentProfile = null, inboxItems = [], outboxItems = [], activeItems = [], currentItem = null, chatTimer = null, pollTimer = null, profileCache = {}, activeTab='received';
+    let currentProfile = null, inboxItems = [], outboxItems = [], activeItems = [], currentItem = null, chatTimer = null, pollTimer = null, profileCache = {}, activeTab='received', lastMatchQuery = '', lastMatchResults = [], aiChatMessages = []; 
     function alias(gmid){ const c=(gmid||'').replace(/[^a-fA-F0-9]/g,'').toLowerCase().padEnd(16,'0'); return _adj[parseInt(c.slice(0,8),16)%_adj.length]+_nou[parseInt(c.slice(8,16),16)%_nou.length]; }
     function initials(text){ const parts=(text.match(/[A-Z][a-z]*/g)||[text]); return parts.slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
     function mask(gmid){ const s=(gmid||'').replace(/[^a-fA-F0-9]/g,''); return s.length<8 ? s : s.substring(0,4)+'·'.repeat(Math.max(4,s.length-8))+s.substring(s.length-4); }
@@ -337,15 +351,74 @@
       await loadLists();
       showNotice('Introduction dispatched', 'Open recipient inbox to review and accept.');
     }
+    function renderAiSummary(payload){
+      const card = $('aiSummaryCard');
+      const summary = (payload && payload.summary) || {};
+      const top = summary.top_candidates || [];
+      const differences = summary.differences || [];
+      const nextQuestions = summary.next_questions || [];
+      card.style.display = 'block';
+      card.innerHTML = `
+        <div class="detail-label">AI Concierge Summary</div>
+        <div class="summary-title">Grounded interpretation of your current shortlist</div>
+        <div class="muted-note" style="margin-top:10px">${escapeHtml(summary.summary || 'No summary available yet.')}</div>
+        <div class="summary-grid">
+          <div>
+            <div class="detail-label" style="margin-top:14px">Top Candidates</div>
+            <div class="summary-list">${top.map(item => `<div class="summary-item"><strong>${escapeHtml(item.alias || 'Member')}</strong><div class="tiny" style="margin-top:8px">Score ${escapeHtml(String(item.score || '0'))}</div><div class="muted-note" style="margin-top:8px">${escapeHtml(item.rationale || '')}</div></div>`).join('') || '<div class="summary-item">No shortlist loaded yet.</div>'}</div>
+          </div>
+          <div>
+            <div class="detail-label" style="margin-top:14px">How Meridian Would Narrow Further</div>
+            <div class="summary-list">${differences.map(item => `<div class="summary-item">${escapeHtml(item)}</div>`).join('') || '<div class="summary-item">No differentiators yet.</div>'}${nextQuestions.map(item => `<div class="summary-item"><strong>Ask next:</strong><div class="muted-note" style="margin-top:8px">${escapeHtml(item)}</div></div>`).join('')}</div>
+          </div>
+        </div>`;
+    }
+    function renderAiChat(){
+      const shell = $('aiChatShell');
+      const root = $('aiChatTranscript');
+      shell.style.display = 'block';
+      if(!aiChatMessages.length){
+        root.innerHTML = '<div class="ai-msg">Ask Meridian AI to compare the current shortlist, explain the tradeoffs, or narrow down the best introduction path.</div>';
+        return;
+      }
+      root.innerHTML = aiChatMessages.map(m => `<div class="${m.role==='user' ? 'user-msg' : 'ai-msg'}">${escapeHtml(m.content || '')}</div>`).join('');
+      root.scrollTop = root.scrollHeight;
+    }
+    async function loadAiSummary(){
+      if(!lastMatchQuery || !lastMatchResults.length){ showNotice('Run a search first', 'Search matches before asking Meridian AI for a grounded shortlist summary.', 'error'); return; }
+      $('aiSummaryCard').style.display = 'block';
+      $('aiSummaryCard').innerHTML = '<div class="detail-label">AI Concierge Summary</div><div class="muted-note">Reviewing the current shortlist…</div>';
+      const res = await api('/api/ai/match-summary', { method:'POST', body: JSON.stringify({ requester_gmid: GMID, query: lastMatchQuery, results: lastMatchResults }) });
+      renderAiSummary(res);
+      renderAiChat();
+    }
+    async function askAiAboutMatches(){
+      if(!lastMatchQuery || !lastMatchResults.length){ showNotice('Run a search first', 'Search matches before opening the shortlist AI chat.', 'error'); return; }
+      const input = $('aiChatInput');
+      const question = input.value.trim();
+      if(!question){ showNotice('Question required', 'Add a narrowing question for Meridian AI.', 'error'); return; }
+      aiChatMessages.push({ role:'user', content: question });
+      renderAiChat();
+      input.value = '';
+      const res = await api('/api/ai/match-chat', { method:'POST', body: JSON.stringify({ requester_gmid: GMID, query: lastMatchQuery, results: lastMatchResults, messages: aiChatMessages }) });
+      aiChatMessages.push({ role:'assistant', content: (res.answer && res.answer.answer) || 'No grounded answer was returned.' });
+      renderAiChat();
+    }
+
     async function runMatchSearch(){
       const q = $('matchQuery').value.trim();
       if(!q) return;
+      lastMatchQuery = q;
+      aiChatMessages = [];
+      $('aiSummaryCard').style.display = 'none';
+      $('aiChatShell').style.display = 'none';
       const root = $('matchResults');
       root.innerHTML = '<div class="empty" style="grid-column:1/-1">Searching current member network…</div>';
       const res = await api('/api/match', { method:'POST', body: JSON.stringify({ requester_gmid: GMID, query: q }) });
       const items = (res.results||[]);
+      lastMatchResults = items;
       if(!items.length){ root.innerHTML = '<div class="empty" style="grid-column:1/-1">No aligned member matches found for that brief.</div>'; return; }
-      root.innerHTML = items.map(({score, profile}) => `
+      root.innerHTML = items.map(({score, profile, reasons}) => `
         <div class="match-card">
           <div class="match-top">
             <div>
@@ -356,6 +429,7 @@
           </div>
           <div class="match-tags">${(profile.domains||[]).slice(0,4).map(x=>`<span class="chip">${escapeHtml(x)}</span>`).join('')}</div>
           <div class="muted-note" style="margin-top:12px">${escapeHtml((profile.assets_preview||[])[0] || 'Profile available for confidential introduction.')}</div>
+          <div class="reason-list">${(reasons||[]).slice(0,3).map(x=>`<div class="reason-line">• ${escapeHtml(x)}</div>`).join('')}</div>
           <div class="match-actions">
             <button class="btn gold" type="button" onclick="togglePingComposer('${profile.gmid}')">Request Introduction</button>
             <a class="btn blue" href="/members">Browse More</a>
@@ -388,6 +462,10 @@
     $('toggleGmidBtn').addEventListener('click', ()=>{ revealGmid = !revealGmid; renderMyGmid(); });
     $('copyGmidBtn').addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(GMID); const btn=$('copyGmidBtn'); const old=btn.textContent; btn.textContent='Copied'; setTimeout(()=>btn.textContent=old,1200);}catch(e){} });
     $('runMatchBtn').addEventListener('click', runMatchSearch);
+    $('runAiSummaryBtn').addEventListener('click', loadAiSummary);
+    $('openAiChatBtn').addEventListener('click', ()=>{ if(!lastMatchResults.length){ showNotice('Run a search first', 'Search matches before opening the shortlist AI chat.', 'error'); return; } renderAiChat(); $('aiChatShell').style.display='block'; });
+    $('sendAiChatBtn').addEventListener('click', askAiAboutMatches);
+    $('aiChatInput').addEventListener('keydown', e=>{ if((e.metaKey || e.ctrlKey) && e.key==='Enter'){ e.preventDefault(); askAiAboutMatches(); }});
     $('matchQuery').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); runMatchSearch(); }});
     $('logoutBtn').addEventListener('click', async ()=>{ try { await api('/api/auth/logout', {method:'POST'}); } catch(e) {} window.location.href='/'; });
     (async function init(){
