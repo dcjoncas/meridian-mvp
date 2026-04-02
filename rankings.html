@@ -102,8 +102,6 @@
 
   <script>
     const $ = id => document.getElementById(id);
-    const _adj=['Velvet ','North ','Aurelian ','Quiet ','Silver ','Midnight ','Golden ','Ivory ','Obsidian ','Rare ','Blue ','Lucent '];
-    const _nou=['Summit','Harbor','Atlas','Crown','Signal','Meridian','Ledger','Falcon','Orbit','Vale','Current','Bridge'];
     async function api(url){
       const res = await fetch(url, {headers:{"Content-Type":"application/json"}});
       if(!res.ok) throw new Error(await res.text());
@@ -111,7 +109,6 @@
     }
     function pct(v){ return `${Math.round((Number(v)||0)*100)}%`; }
     function fmtScore(v){ return Number(v||0).toFixed(1); }
-    function alias(gmid){ const c=(gmid||'').replace(/[^a-fA-F0-9]/g,'').toLowerCase().padEnd(16,'0'); return _adj[parseInt(c.slice(0,8),16)%_adj.length]+_nou[parseInt(c.slice(8,16),16)%_nou.length]; }
     function mask(gmid){ const s=(gmid||'').replace(/[^a-fA-F0-9]/g,''); return s.length<8 ? s : s.substring(0,4)+'·'.repeat(Math.max(4,s.length-8))+s.substring(s.length-4); }
 
     async function loadRankings(){
@@ -142,7 +139,7 @@
         tr.innerHTML = `
           <td><div class="rank">#${row.rank}</div></td>
           <td>
-            <div class="name">${escapeHtml(alias(row.gmid || ''))}</div>
+            <div class="name">${escapeHtml(row.alias_name || 'Unassigned Alias')}</div>
             <div class="sub">${escapeHtml(mask(row.gmid || ''))}</div>
           </td>
           <td><span class="score-pill">${fmtScore(row.composite_score)}</span></td>

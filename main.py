@@ -260,7 +260,7 @@ def build_match_result(score: int, p: Dict[str, Any]) -> Dict[str, Any]:
         "score": int(score),
         "profile": {
             "gmid": p["gmid"],
-            "alias_name": p.get("alias_name") or alias_from_gmid(p["gmid"]),
+            "alias_name": (p.get("alias_name") or "").strip(),
             "display_name": p["display_name"],
             "headline": p.get("headline") or "",
             "biography": p.get("biography") or "",
@@ -297,7 +297,7 @@ def make_match_payload(query: str, requester: str, limit: int = 10) -> Dict[str,
             "score": int(s),
             "profile": {
                 "gmid": p["gmid"],
-                "alias_name": p.get("alias_name") or alias_from_gmid(p["gmid"]),
+                "alias_name": (p.get("alias_name") or "").strip(),
                 "display_name": p["display_name"],
                 "headline": p.get("headline") or "",
                 "biography": p.get("biography") or "",
@@ -322,7 +322,7 @@ def ai_shortlist_context(query: str, results: List[Dict[str, Any]]) -> List[Dict
         profile = item.get("profile") or {}
         context.append({
             "rank": idx,
-            "alias": profile.get("alias_name") or alias_from_gmid(profile.get("gmid", "")),
+            "alias": (profile.get("alias_name") or "").strip(),
             "gmid": profile.get("gmid"),
             "score": item.get("score"),
             "headline": profile.get("headline") or "",
@@ -982,7 +982,7 @@ def api_profile_self(request: Request):
                 conn.rollback()
                 docs = []
 
-            return JSONResponse(content=jsonable_encoder({"ok": True, "profile": profile, "documents": docs, "alias": member_row.get("alias_name") or alias_from_gmid(member["gmid"])}))
+            return JSONResponse(content=jsonable_encoder({"ok": True, "profile": profile, "documents": docs, "alias": member_row.get("alias_name") or ""}))
     finally:
         put_conn(conn)
 
@@ -1257,7 +1257,7 @@ def api_rankings(limit: int = 500):
                 response_rate = (accepted_sent / sent) if sent else 0
                 strength = profile_strength_score(p)
                 composite = round((strength * 0.72) + (min(connections,10) * 2.0) + (response_rate * 8.0), 2)
-                out.append({"gmid": p["gmid"], "display_name": p["display_name"], "strength_score": strength, "connections": connections, "response_rate": round(response_rate,2), "composite_score": composite, "domains": p["domains"]})
+                out.append({"gmid": p["gmid"], "alias_name": (p.get("alias_name") or "").strip(), "display_name": p["display_name"], "strength_score": strength, "connections": connections, "response_rate": round(response_rate,2), "composite_score": composite, "domains": p["domains"]})
             out.sort(key=lambda x:(x["composite_score"], x["strength_score"], x["connections"]), reverse=True)
             for idx,row in enumerate(out, start=1): row["rank"]=idx
             return JSONResponse(content=jsonable_encoder({"ok": True, "items": out[:limit], "total": len(out), "canonical_visible_members": canonical_visible_member_count()}))
@@ -1330,7 +1330,7 @@ def api_member_discovery(limit: int = 120):
             continue
         items.append({
             "gmid": p["gmid"],
-            "alias": p.get("alias_name") or alias_from_gmid(p["gmid"]),
+            "alias": (p.get("alias_name") or "").strip(),
             "headline": ", ".join((p.get("roles") or [])[:2]) or "Meridian Member",
             "domains": p.get("domains") or [],
             "roles": p.get("roles") or [],
@@ -1356,7 +1356,7 @@ def api_admin_members(request: Request, limit: int = 500):
             rows = cur.fetchall()
             items = []
             for row in rows:
-                alias_name = row.get("alias_name") or alias_from_gmid(row["gmid"])
+                alias_name = (row.get("alias_name") or "").strip()
                 items.append({
                     "id": row["id"],
                     "gmid": row["gmid"],

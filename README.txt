@@ -26,3 +26,10 @@ Demo member login convention:
 - Mike account: mike / red123
 - Seeded demo members: member001 through member100
 - Seeded demo member password: red123
+
+
+Canonical repair script:
+- Dry run: python scripts/repair_canonical_members.py
+- Apply: DATABASE_URL=... SESSION_SECRET=... python scripts/repair_canonical_members.py --apply
+- Preserve key logins by default: mike, darrin.joncas, mack
+- Optional reset for Mike and Darrin: python scripts/repair_canonical_members.py --apply --reset-known-passwords

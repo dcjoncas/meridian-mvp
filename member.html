@@ -208,7 +208,7 @@
     const _adj=['Blue','Red','Green','Swift','Bold','Wise','Fierce','Calm','Silent','Brave','Mystic','Dark','Light','Stormy','Fiery','Icy','Golden','Silver','Shadow','Thunder','Ancient','Eternal','Vivid','Quiet','Loud','Sharp','Dull','Bright','Dim','Hot','Cold','Wet','Dry','Fast','Slow','Heavy','Strong','Weak','Tall','Short','Long','Brief','Deep','Shallow','Wide','Narrow','Old','New','Young','Aged','Pure','Tainted','Clear','Cloudy','Sunny','Rainy','Windy','Still','Wild','Tame','Free','Bound','Happy','Sad','Angry','Peaceful','Chaotic','Orderly','Elegant','Clumsy','Graceful','Awkward','Smart','Clever','Rich','Poor','Full','Empty','Open','Closed','Locked','Unlocked','Safe','Dangerous','Friendly','Hostile','Warm','Cool','Soft','Hard','Smooth','Rough','Shiny','Matte','Vibrant','Faded','Iron','Velvet'];
     const _nou=['Dragon','Phoenix','Tiger','Eagle','Wolf','Fox','Bear','Lion','Hawk','Raven','Shark','Panther','Owl','Falcon','Viper','Cobra','Lynx','Stag','Bull','Horse','Snake','Spider','Scorpion','Whale','Dolphin','Fish','Bird','Cat','Dog','Mouse','Bat','Deer','Elk','Moose','Rabbit','Hare','Squirrel','Beaver','Otter','Seal','Walrus','Penguin','Ostrich','Peacock','Parrot','Crow','Dove','Swan','Goose','Duck','Pig','Cow','Sheep','Goat','Donkey','Mule','Camel','Llama','Elephant','Rhino','Hippo','Giraffe','Zebra','Antelope','Buffalo','Bison','Yak','Monkey','Ape','Gorilla','Chimp','Lemur','Sloth','Koala','Kangaroo','Platypus','Turtle','Tortoise','Lizard','Gecko','Iguana','Alligator','Crocodile','Frog','Toad','Salamander','Newt','Butterfly','Moth','Bee','Wasp','Condor','Manta','Narwhal','Puma','Jaguar','Raptor','Coyote','Badger'];
     let currentProfile = null, inboxItems = [], outboxItems = [], activeItems = [], currentItem = null, chatTimer = null, pollTimer = null, profileCache = {}, activeTab='received', lastMatchQuery = '', lastMatchResults = [], aiChatMessages = []; 
-    function alias(gmid){ const c=(gmid||'').replace(/[^a-fA-F0-9]/g,'').toLowerCase().padEnd(16,'0'); return _adj[parseInt(c.slice(0,8),16)%_adj.length]+_nou[parseInt(c.slice(8,16),16)%_nou.length]; }
+    function aliasValue(entity, fallback='Unassigned Alias'){ if(!entity) return fallback; if(typeof entity === 'string'){ const fromCache = profileCache[entity]; if(fromCache && fromCache.alias_name) return fromCache.alias_name; if(currentProfile && currentProfile.gmid === entity && currentProfile.alias_name) return currentProfile.alias_name; return fallback; } return entity.alias_name || fallback; }
     function initials(text){ const parts=(text.match(/[A-Z][a-z]*/g)||[text]); return parts.slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
     function mask(gmid){ const s=(gmid||'').replace(/[^a-fA-F0-9]/g,''); return s.length<8 ? s : s.substring(0,4)+'·'.repeat(Math.max(4,s.length-8))+s.substring(s.length-4); }
     function fmt(ts){ try{ return new Date(ts).toLocaleString(); } catch { return ts || '—'; } }
@@ -216,12 +216,12 @@
     async function getProfile(gmid){ if(profileCache[gmid]) return profileCache[gmid]; const res = await api(`/api/profile/${gmid}`); profileCache[gmid] = res.profile; return res.profile; }
     let revealGmid = false;
     function renderMyGmid(){ const el=$('memberGmid'), btn=$('toggleGmidBtn'); if(!el||!btn) return; el.textContent = revealGmid ? GMID : mask(GMID); btn.textContent = revealGmid ? 'Hide' : 'Reveal'; }
-    async function loadProfile(){ const res = await api(`/api/profile/${GMID}`); currentProfile = res.profile; $('memberName').textContent = currentProfile.display_name; $('memberMeta').textContent = `${mask(GMID)} · ${alias(GMID)}`; $('memberAv').textContent = initials(alias(GMID)); renderMyGmid(); renderProfileHome(); }
+    async function loadProfile(){ const res = await api(`/api/profile/${GMID}`); currentProfile = res.profile; $('memberName').textContent = currentProfile.display_name; $('memberMeta').textContent = `${mask(GMID)} · ${aliasValue(currentProfile)}`; $('memberAv').textContent = initials(aliasValue(currentProfile)); renderMyGmid(); renderProfileHome(); }
     function renderProfileHome(){
       if(!currentProfile) return;
       const roles=(currentProfile.roles||[]).slice(0,2).join(' · ');
       const domains=(currentProfile.domains||[]).slice(0,3);
-      $('profileAlias').textContent = alias(GMID);
+      $('profileAlias').textContent = aliasValue(currentProfile);
       $('profileHeadline').textContent = `${currentProfile.display_name}${roles ? ' · '+roles : ''}`;
       $('profileChips').innerHTML = domains.map(d => `<span class="chip">${escapeHtml(d)}</span>`).join('') || '<span class="chip">Meridian Member</span>';
       $('profileAssets').innerHTML = ((currentProfile.assets||[]).slice(0,3).map(x => `• ${escapeHtml(x)}`).join('<br>')) || 'Complete your profile over time to improve concierge match quality.';
@@ -267,7 +267,7 @@
       root.innerHTML = '';
       for(const item of activeItems){
         const whoGmid = otherParty(item);
-        const who = alias(whoGmid);
+        const who = aliasValue(whoGmid);
         const div=document.createElement('div');
         div.className='ping'+(currentItem&&currentItem.id===item.id?' active':'');
         div.onclick=()=>selectItem(item.id);
@@ -283,7 +283,7 @@
       const requester = await getProfile(currentItem.requester_gmid);
       const target = await getProfile(currentItem.target_gmid);
       const whoGmid = otherParty(currentItem);
-      const whoAlias = alias(whoGmid);
+      const whoAlias = aliasValue(whoGmid);
       const isRecipient = currentItem.target_gmid === GMID;
       const person = whoGmid === currentItem.requester_gmid ? requester : target;
       const actionButtons = (currentItem.status === 'pending' && isRecipient)
@@ -307,7 +307,7 @@
       if(currentItem.status === 'accepted'){ await loadChat(); startChatPolling(); } else stopChatPolling();
     }
     async function respondCurrent(status){ if(!currentItem) return; await api(`/api/ping/${currentItem.id}/respond`, { method:'POST', body: JSON.stringify({ status }) }); await loadLists(); currentItem = activeItems.find(x => x.id === currentItem.id) || currentItem; await renderDetail(); }
-    async function loadChat(){ if(!currentItem || currentItem.status !== 'accepted') return; const res = await api(`/api/chat/${currentItem.id}`); const box = $('chatBox'); if(!box) return; if(!(res.messages||[]).length){ box.innerHTML = '<div class="tiny">No messages yet. Start the conversation below.</div>'; return; } box.innerHTML = ''; for(const m of res.messages){ const mine = m.sender_gmid === GMID; const who = mine ? 'You' : alias(m.sender_gmid); const msg = document.createElement('div'); msg.className = 'msg' + (mine ? ' me' : ''); msg.innerHTML = `<div class="bubble"><div class="msg-meta">${who} · ${fmt(m.created_at)}</div><div class="msg-text">${escapeHtml(m.message)}</div></div>`; box.appendChild(msg); } box.scrollTop = box.scrollHeight; }
+    async function loadChat(){ if(!currentItem || currentItem.status !== 'accepted') return; const res = await api(`/api/chat/${currentItem.id}`); const box = $('chatBox'); if(!box) return; if(!(res.messages||[]).length){ box.innerHTML = '<div class="tiny">No messages yet. Start the conversation below.</div>'; return; } box.innerHTML = ''; for(const m of res.messages){ const mine = m.sender_gmid === GMID; const who = mine ? 'You' : aliasValue(m.sender_gmid); const msg = document.createElement('div'); msg.className = 'msg' + (mine ? ' me' : ''); msg.innerHTML = `<div class="bubble"><div class="msg-meta">${who} · ${fmt(m.created_at)}</div><div class="msg-text">${escapeHtml(m.message)}</div></div>`; box.appendChild(msg); } box.scrollTop = box.scrollHeight; }
     async function sendChat(){ const ta = $('chatMessage'); if(!ta || !currentItem) return; const message = ta.value.trim(); if(!message) return; await api(`/api/chat/${currentItem.id}/send`, { method:'POST', body: JSON.stringify({ sender_gmid: GMID, message }) }); ta.value = ''; await loadChat(); }
     function startChatPolling(){ stopChatPolling(); chatTimer = setInterval(()=>{ if(!document.hidden) loadChat(); }, 8000); }
     function stopChatPolling(){ if(chatTimer){ clearInterval(chatTimer); chatTimer = null; } }
@@ -326,7 +326,7 @@
       $('detailPane').innerHTML = `
         <div class="detail-head">
           <div>
-            <div class="detail-title">${escapeHtml(alias(profile.gmid))}</div>
+            <div class="detail-title">${escapeHtml(aliasValue(profile))}</div>
             <div class="detail-meta">${escapeHtml(mask(profile.gmid))} · ${escapeHtml((profile.roles||[]).slice(0,2).join(' · ') || 'Meridian Member')}</div>
           </div>
           <div class="status pending">Selected Member</div>
@@ -439,7 +439,7 @@
         <div class="match-card">
           <div class="match-top">
             <div>
-              <div class="match-name">${escapeHtml(alias(profile.gmid))}</div>
+              <div class="match-name">${escapeHtml(aliasValue(profile))}</div>
               <div class="match-meta">${escapeHtml(mask(profile.gmid))} · ${escapeHtml((profile.roles||[]).slice(0,2).join(' · ') || 'Meridian Member')}</div>
             </div>
             <div class="score-badge">Match ${score}</div>
