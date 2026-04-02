@@ -29,7 +29,7 @@
       <div>
         <div class="sub">Separate administrator console</div>
         <div class="brand">Member Access Directory</div>
-        <div class="muted">Admin view shows both private identity and member-facing identity. Delete converts a record into <strong>GHOST MEMBER</strong> so historic network links remain intact.</div>
+        <div class="muted">Admin view shows both private identity and member-facing identity. Ghost converts a record into <strong>GHOST MEMBER</strong> so historic network links remain intact. Unghost restores the saved identity, profile, and login when needed.</div>
       </div>
       <div class="actions">
         <a class="btn" href="/">Member login</a>
@@ -79,7 +79,7 @@
           <td><div class="mono">${escapeHtml(row.password_hint || (row.status==='ghosted' ? 'disabled' : 'Member-managed'))}</div><div class="tiny">${row.is_system?'Shared demo password':(row.status==='ghosted'?'Login removed':'Invite or temp password set at creation')}</div></td>
           <td><div>${escapeHtml(row.status||'—')}</div><div class="tiny">${row.must_change_password?'must change password':''}</div></td>
           <td>${escapeHtml(fmt(row.last_login_at))}</td>
-          <td>${row.status==='ghosted' ? '<span class="tiny">Ghost preserved</span>' : `<button class="btn ghost-btn" data-delete="${row.id}" data-alias="${escapeHtml(row.alias)}">Ghost Member</button>`}</td>`;
+          <td>${row.status==='ghosted' ? `<button class="btn" data-unghost="${row.id}" data-alias="${escapeHtml(row.alias)}">Unghost Member</button>` : `<button class="btn ghost-btn" data-delete="${row.id}" data-alias="${escapeHtml(row.alias)}">Ghost Member</button>`}</td>`;
         $('tbody').appendChild(tr);
       }
       document.querySelectorAll('[data-copy]').forEach(el=>el.onclick=async()=>{ try{ await navigator.clipboard.writeText(el.getAttribute('data-copy')); el.textContent='Copied'; setTimeout(()=>el.textContent=el.getAttribute('data-copy'),900);}catch{}});
@@ -88,6 +88,20 @@
         if(!confirm(`Convert ${alias} into GHOST MEMBER? Existing links remain, but login access is removed.`)) return;
         btn.disabled=true;
         try{ await api(`/api/admin/members/${id}/delete`, {method:'POST'}); await load(); }
+        catch(err){ alert(err.message); btn.disabled=false; }
+      });
+      document.querySelectorAll('[data-unghost]').forEach(btn=>btn.onclick=async()=>{
+        const id=btn.getAttribute('data-unghost'); const alias=btn.getAttribute('data-alias');
+        if(!confirm(`Restore ${alias} from ghosted state?`)) return;
+        btn.disabled=true;
+        try{
+          const result = await api(`/api/admin/members/${id}/unghost`, {method:'POST'});
+          let note = 'Member restored.';
+          if(result.username) note += `\nUsername: ${result.username}`;
+          if(result.temporary_password) note += `\nTemporary password: ${result.temporary_password}`;
+          alert(note);
+          await load();
+        }
         catch(err){ alert(err.message); btn.disabled=false; }
       });
     }

@@ -233,6 +233,28 @@ def init_schema():
               parsed_json JSONB NOT NULL DEFAULT '{}'::jsonb,
               uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            CREATE TABLE IF NOT EXISTS member_ghost_snapshots (
+              member_id BIGINT PRIMARY KEY REFERENCES members(id) ON DELETE CASCADE,
+              display_name TEXT,
+              email TEXT,
+              previous_status TEXT,
+              previous_is_system BOOLEAN NOT NULL DEFAULT FALSE,
+              auth_username TEXT,
+              auth_password_hash TEXT,
+              auth_must_change_password BOOLEAN,
+              profile_headline TEXT,
+              profile_biography TEXT,
+              profile_domains_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+              profile_roles_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+              profile_experience_years INT NOT NULL DEFAULT 0,
+              profile_networks_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+              profile_political_social_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+              profile_assets_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+              profile_values_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+              profile_attributes_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+              profile_strength_score INT NOT NULL DEFAULT 0,
+              ghosted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
             CREATE TABLE IF NOT EXISTS member_invitations (
               id BIGSERIAL PRIMARY KEY,
               candidate_name TEXT NOT NULL,
@@ -320,6 +342,19 @@ def init_schema():
                            WHERE lower(coalesce(email,''))='darrin.joncas@gmail.com'
                               OR lower(display_name)='darrin joncas'
                               OR id IN (SELECT member_id FROM member_auth WHERE lower(username)='darrin.joncas')""")
+            cur.execute("SELECT id FROM members WHERE lower(coalesce(email,''))='darrin.joncas@gmail.com' OR lower(display_name)='darrin joncas' ORDER BY id ASC LIMIT 1")
+            darrin_row = cur.fetchone()
+            if darrin_row:
+                darrin_id = darrin_row[0]
+                cur.execute("SELECT member_id FROM member_auth WHERE lower(username)=lower(%s)", ("darrin.joncas",))
+                owner = cur.fetchone()
+                if owner and owner[0] != darrin_id:
+                    cur.execute("UPDATE member_auth SET username=%s WHERE member_id=%s", (f"member.{owner[0]}", owner[0]))
+                cur.execute("SELECT 1 FROM member_auth WHERE member_id=%s", (darrin_id,))
+                if cur.fetchone():
+                    cur.execute("UPDATE member_auth SET username=%s, password_hash=%s, must_change_password=FALSE WHERE member_id=%s", ("darrin.joncas", hash_password("red123"), darrin_id))
+                else:
+                    cur.execute("INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)", (darrin_id, "darrin.joncas", hash_password("red123"), False))
             cur.execute("SELECT id, gmid FROM members WHERE alias_name IS NULL OR alias_name='' ORDER BY id ASC")
             for alias_row in cur.fetchall():
                 cur.execute("UPDATE members SET alias_name=%s WHERE id=%s", (canonical_alias(cur, alias_row[1], alias_row[0]), alias_row[0]))
@@ -1010,16 +1045,154 @@ def api_admin_delete_member(member_id: int, request: Request):
     conn = get_conn()
     try:
         with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT id, gmid, display_name, status FROM members WHERE id=%s", (member_id,))
+            cur.execute("""SELECT m.id, m.gmid, m.display_name, m.email, m.status, m.is_system,
+                                  a.username, a.password_hash, a.must_change_password,
+                                  p.headline, p.biography, p.domains_json, p.roles_json, p.experience_years,
+                                  p.networks_json, p.political_social_json, p.assets_json, p.values_json,
+                                  p.attributes_json, p.strength_score
+                           FROM members m
+                           LEFT JOIN member_auth a ON a.member_id = m.id
+                           LEFT JOIN member_profiles p ON p.member_id = m.id
+                           WHERE m.id=%s""", (member_id,))
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="Member not found")
             if row["status"] == "ghosted":
                 return JSONResponse(content=jsonable_encoder({"ok": True, "ghosted": True, "member_id": member_id, "gmid": row["gmid"]}))
+
+            cur.execute("""INSERT INTO member_ghost_snapshots (
+                              member_id, display_name, email, previous_status, previous_is_system,
+                              auth_username, auth_password_hash, auth_must_change_password,
+                              profile_headline, profile_biography, profile_domains_json, profile_roles_json,
+                              profile_experience_years, profile_networks_json, profile_political_social_json,
+                              profile_assets_json, profile_values_json, profile_attributes_json, profile_strength_score
+                           ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                           ON CONFLICT (member_id) DO UPDATE SET
+                              display_name=EXCLUDED.display_name,
+                              email=EXCLUDED.email,
+                              previous_status=EXCLUDED.previous_status,
+                              previous_is_system=EXCLUDED.previous_is_system,
+                              auth_username=EXCLUDED.auth_username,
+                              auth_password_hash=EXCLUDED.auth_password_hash,
+                              auth_must_change_password=EXCLUDED.auth_must_change_password,
+                              profile_headline=EXCLUDED.profile_headline,
+                              profile_biography=EXCLUDED.profile_biography,
+                              profile_domains_json=EXCLUDED.profile_domains_json,
+                              profile_roles_json=EXCLUDED.profile_roles_json,
+                              profile_experience_years=EXCLUDED.profile_experience_years,
+                              profile_networks_json=EXCLUDED.profile_networks_json,
+                              profile_political_social_json=EXCLUDED.profile_political_social_json,
+                              profile_assets_json=EXCLUDED.profile_assets_json,
+                              profile_values_json=EXCLUDED.profile_values_json,
+                              profile_attributes_json=EXCLUDED.profile_attributes_json,
+                              profile_strength_score=EXCLUDED.profile_strength_score,
+                              ghosted_at=NOW()""",
+                        (member_id, row["display_name"], row["email"], row["status"], row["is_system"],
+                         row["username"], row["password_hash"], row["must_change_password"],
+                         row["headline"], row["biography"], Json(row.get("domains_json") or []), Json(row.get("roles_json") or []),
+                         row.get("experience_years") or 0, Json(row.get("networks_json") or []), Json(row.get("political_social_json") or []),
+                         Json(row.get("assets_json") or []), Json(row.get("values_json") or []), Json(row.get("attributes_json") or {}),
+                         row.get("strength_score") or 0))
             cur.execute("DELETE FROM member_auth WHERE member_id=%s", (member_id,))
-            cur.execute("UPDATE member_profiles SET headline=%s, biography=%s, domains_json='[]'::jsonb, roles_json='[]'::jsonb, networks_json='[]'::jsonb, assets_json='[]'::jsonb, values_json='[]'::jsonb, attributes_json='{}'::jsonb, strength_score=0 WHERE member_id=%s", ('GHOST MEMBER', 'Ghosted member record retained to preserve historical network links.', member_id))
+            cur.execute("""UPDATE member_profiles
+                           SET headline=%s, biography=%s, domains_json='[]'::jsonb, roles_json='[]'::jsonb,
+                               networks_json='[]'::jsonb, political_social_json='[]'::jsonb,
+                               assets_json='[]'::jsonb, values_json='[]'::jsonb, attributes_json='{}'::jsonb,
+                               strength_score=0, experience_years=0, updated_at=NOW()
+                           WHERE member_id=%s""", ('GHOST MEMBER', 'Ghosted member record retained to preserve historical network links.', member_id))
             cur.execute("UPDATE members SET display_name=%s, email=NULL, status='ghosted', is_system=FALSE WHERE id=%s", ('GHOST MEMBER', member_id))
             return JSONResponse(content=jsonable_encoder({"ok": True, "ghosted": True, "member_id": member_id, "gmid": row["gmid"], "display_name": 'GHOST MEMBER'}))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/admin/members/{member_id}/unghost")
+def api_admin_unghost_member(member_id: int, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, gmid, alias_name, display_name, status FROM members WHERE id=%s", (member_id,))
+            member = cur.fetchone()
+            if not member:
+                raise HTTPException(status_code=404, detail="Member not found")
+            if member["status"] != "ghosted":
+                return JSONResponse(content=jsonable_encoder({"ok": True, "restored": False, "member_id": member_id, "status": member["status"]}))
+
+            cur.execute("SELECT * FROM member_ghost_snapshots WHERE member_id=%s", (member_id,))
+            snap = cur.fetchone()
+            restored_display = None
+            restored_email = None
+            restored_status = 'active'
+            restored_is_system = False
+            username = f"restored.{member_id}"
+            password_hash = hash_password("red123")
+            must_change_password = False
+            profile = {
+                'headline': None, 'biography': None, 'domains_json': [], 'roles_json': [], 'experience_years': 0,
+                'networks_json': [], 'political_social_json': [], 'assets_json': [], 'values_json': [], 'attributes_json': {}, 'strength_score': 0
+            }
+            if snap:
+                restored_display = snap.get('display_name') or f"Restored Member {member_id}"
+                restored_email = snap.get('email')
+                restored_status = snap.get('previous_status') or 'active'
+                restored_is_system = bool(snap.get('previous_is_system'))
+                username = snap.get('auth_username') or f"restored.{member_id}"
+                password_hash = snap.get('auth_password_hash') or hash_password("red123")
+                must_change_password = bool(snap.get('auth_must_change_password')) if snap.get('auth_must_change_password') is not None else False
+                for key in profile:
+                    if key in snap and snap.get(key) is not None:
+                        profile[key] = snap.get(key)
+            else:
+                alias = member.get('alias_name') or f"member{member_id}"
+                restored_display = alias
+                profile['headline'] = 'Restored Meridian member'
+                profile['biography'] = 'This member record was restored after being ghosted. Update the profile details as needed.'
+
+            restored_status = restored_status if restored_status in ('active', 'pending_vetting') else 'active'
+            cur.execute("UPDATE members SET display_name=%s, email=%s, status=%s, is_system=%s WHERE id=%s",
+                        (restored_display, restored_email, restored_status, restored_is_system, member_id))
+            cur.execute("""INSERT INTO member_profiles (
+                              member_id, headline, biography, domains_json, roles_json, experience_years,
+                              networks_json, political_social_json, assets_json, values_json, attributes_json, strength_score, updated_at
+                           ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
+                           ON CONFLICT (member_id) DO UPDATE SET
+                              headline=EXCLUDED.headline,
+                              biography=EXCLUDED.biography,
+                              domains_json=EXCLUDED.domains_json,
+                              roles_json=EXCLUDED.roles_json,
+                              experience_years=EXCLUDED.experience_years,
+                              networks_json=EXCLUDED.networks_json,
+                              political_social_json=EXCLUDED.political_social_json,
+                              assets_json=EXCLUDED.assets_json,
+                              values_json=EXCLUDED.values_json,
+                              attributes_json=EXCLUDED.attributes_json,
+                              strength_score=EXCLUDED.strength_score,
+                              updated_at=NOW()""",
+                        (member_id, profile['headline'], profile['biography'], Json(profile['domains_json'] or []), Json(profile['roles_json'] or []), profile['experience_years'] or 0,
+                         Json(profile['networks_json'] or []), Json(profile['political_social_json'] or []), Json(profile['assets_json'] or []),
+                         Json(profile['values_json'] or []), Json(profile['attributes_json'] or {}), profile['strength_score'] or 0))
+            cur.execute("SELECT member_id FROM member_auth WHERE lower(username)=lower(%s) AND member_id<>%s", (username, member_id))
+            owner = cur.fetchone()
+            if owner:
+                username = f"restored.{member_id}"
+            cur.execute("""INSERT INTO member_auth (member_id, username, password_hash, must_change_password)
+                           VALUES (%s,%s,%s,%s)
+                           ON CONFLICT (member_id) DO UPDATE SET
+                              username=EXCLUDED.username,
+                              password_hash=EXCLUDED.password_hash,
+                              must_change_password=EXCLUDED.must_change_password""",
+                        (member_id, username, password_hash, must_change_password))
+            return JSONResponse(content=jsonable_encoder({
+                "ok": True,
+                "restored": True,
+                "member_id": member_id,
+                "gmid": member["gmid"],
+                "display_name": restored_display,
+                "username": username,
+                "status": restored_status,
+                "temporary_password": "red123" if not snap or not snap.get('auth_password_hash') else None
+            }))
     finally:
         put_conn(conn)
 
