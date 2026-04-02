@@ -282,7 +282,7 @@ def make_match_payload(query: str, requester: str, limit: int = 10) -> Dict[str,
     profiles = [
         p for p in fetch_profiles(5000)
         if p["gmid"] != requester
-        and p.get("status") in ("active", "pending_vetting")
+        and p.get("status") in ("active",)
         and p.get("status") != "ghosted"
     ]
     scored = []
@@ -694,18 +694,25 @@ app = FastAPI(title="Meridian Postgres", version="1.3")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, same_site="lax")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
+CANONICAL_VISIBLE_MEMBER_SQL = "COALESCE(m.status, 'active') <> 'ghost'"
+
 @app.on_event("startup")
 def startup(): init_schema()
 
 def ensure_canonical_member_rows(conn):
     with conn.cursor() as cur:
-        cur.execute("SELECT id, gmid FROM members WHERE status IN ('active','pending_vetting') AND (alias_name IS NULL OR alias_name='') ORDER BY id ASC")
+        # Meridian no longer holds invited members in a conditional pending state.
+        # Any invited member is promoted directly into the active canonical pool.
+        cur.execute("UPDATE members SET status='active' WHERE status='pending_vetting'")
+
+        cur.execute(f"SELECT id, gmid FROM members m WHERE {CANONICAL_VISIBLE_MEMBER_SQL} AND (m.alias_name IS NULL OR m.alias_name='') ORDER BY m.id ASC")
         for member_id, gmid in cur.fetchall():
             cur.execute("UPDATE members SET alias_name=%s WHERE id=%s", (canonical_alias(cur, gmid, member_id), member_id))
-        cur.execute("""INSERT INTO member_profiles (member_id)
+
+        cur.execute(f"""INSERT INTO member_profiles (member_id)
                        SELECT m.id FROM members m
                        LEFT JOIN member_profiles p ON p.member_id=m.id
-                       WHERE m.status IN ('active','pending_vetting') AND p.member_id IS NULL""")
+                       WHERE {CANONICAL_VISIBLE_MEMBER_SQL} AND p.member_id IS NULL""")
     conn.commit()
 
 def fetch_profiles(limit: int = 250):
@@ -713,7 +720,7 @@ def fetch_profiles(limit: int = 250):
     try:
         ensure_canonical_member_rows(conn)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT m.id, m.gmid, m.alias_name, m.display_name, m.email, m.is_system, m.status, m.created_at,
+            cur.execute(f"""SELECT m.id, m.gmid, m.alias_name, m.display_name, m.email, m.is_system, m.status, m.created_at,
                                   COALESCE(p.headline, '') AS headline,
                                   COALESCE(p.biography, '') AS biography,
                                   COALESCE(p.domains_json, '[]'::jsonb) AS domains,
@@ -723,12 +730,12 @@ def fetch_profiles(limit: int = 250):
                                   COALESCE(p.political_social_json, '[]'::jsonb) AS political_social,
                                   COALESCE(p.assets_json, '[]'::jsonb) AS assets,
                                   COALESCE(p.values_json, '[]'::jsonb) AS values,
-                                  COALESCE(p.attributes_json, '{}'::jsonb) AS attributes,
+                                  COALESCE(p.attributes_json, '{{}}'::jsonb) AS attributes,
                                   COALESCE(p.strength_score, 0) AS strength_score,
                                   p.updated_at
                            FROM members m
                            LEFT JOIN member_profiles p ON p.member_id = m.id
-                           WHERE m.status IN ('active','pending_vetting')
+                           WHERE {CANONICAL_VISIBLE_MEMBER_SQL}
                              AND COALESCE(m.alias_name, '') <> ''
                            ORDER BY m.is_system DESC, COALESCE(p.strength_score,0) DESC, COALESCE(p.experience_years,0) DESC, m.created_at DESC, m.id ASC
                            LIMIT %s""", (limit,))
@@ -741,9 +748,9 @@ def canonical_visible_member_count() -> int:
     try:
         ensure_canonical_member_rows(conn)
         with conn.cursor() as cur:
-            cur.execute("""SELECT COUNT(*)
+            cur.execute(f"""SELECT COUNT(*)
                            FROM members m
-                           WHERE m.status IN ('active','pending_vetting') AND COALESCE(m.alias_name, '') <> ''""")
+                           WHERE {CANONICAL_VISIBLE_MEMBER_SQL} AND COALESCE(m.alias_name, '') <> ''""")
             return int(cur.fetchone()[0])
     finally:
         put_conn(conn)
@@ -823,7 +830,7 @@ def get_current_member(request: Request):
     try:
         ensure_canonical_member_rows(conn)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT gmid, display_name, email, status, is_system FROM members WHERE gmid=%s AND status IN ('active','pending_vetting')", (gmid,))
+            cur.execute("SELECT gmid, display_name, email, status, is_system FROM members WHERE gmid=%s AND status IN ('active')", (gmid,))
             return cur.fetchone()
     finally:
         put_conn(conn)
@@ -869,7 +876,7 @@ async def api_auth_login(request: Request):
                            JOIN members m ON m.id = a.member_id
                            WHERE lower(a.username)=lower(%s)""", (username,))
             row = cur.fetchone()
-            if not row or row["status"] not in ("active", "pending_vetting") or not verify_password(password, row["password_hash"]):
+            if not row or row["status"] not in ("active",) or not verify_password(password, row["password_hash"]):
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             request.session["member_gmid"] = row["gmid"]
             request.session["username"] = row["username"]
@@ -1241,7 +1248,7 @@ def api_rankings(limit: int = 500):
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             out=[]
             for p in profiles:
-                if p.get("status") not in ("active", "pending_vetting"):
+                if p.get("status") not in ("active",):
                     continue
                 cur.execute("SELECT COUNT(*) AS c FROM pings WHERE status='accepted' AND (requester_gmid=%s OR target_gmid=%s)", (p["gmid"], p["gmid"]))
                 connections = cur.fetchone()["c"]
@@ -1303,7 +1310,7 @@ async def api_complete_invitation(token: str, request: Request):
             cur.execute("SELECT id FROM members WHERE lower(email)=lower(%s)", (email,))
             if cur.fetchone(): raise HTTPException(status_code=400, detail="That email already belongs to an existing Meridian member.")
             gmid = make_gmid(display_name + "|" + email)
-            cur.execute("INSERT INTO members (gmid, display_name, email, alias_name, is_system, status) VALUES (%s,%s,%s,%s,FALSE,'pending_vetting') RETURNING id", (gmid, display_name, email, alias_from_gmid(gmid)))
+            cur.execute("INSERT INTO members (gmid, display_name, email, alias_name, is_system, status) VALUES (%s,%s,%s,%s,FALSE,'active') RETURNING id", (gmid, display_name, email, alias_from_gmid(gmid)))
             member_id = cur.fetchone()["id"]
             profile = {"domains":domains,"roles":roles,"experience_years":experience_years,"networks":networks,"assets":assets,"values":values,"attributes":attributes}
             username = unique_username(cur, username or email.split("@")[0])
@@ -1311,7 +1318,7 @@ async def api_complete_invitation(token: str, request: Request):
             cur.execute("INSERT INTO member_profiles (member_id, domains_json, roles_json, experience_years, networks_json, assets_json, values_json, attributes_json, strength_score) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", (member_id, Json(domains), Json(roles), experience_years, Json(networks), Json(assets), Json(values), Json(attributes), profile_strength_score(profile)))
             cur.execute("UPDATE member_invitations SET invitation_status='accepted', accepted_at=NOW() WHERE id=%s", (inv["id"],))
             cur.execute("INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)", (member_id, username, hash_password(password), False))
-        return JSONResponse(content=jsonable_encoder({"ok": True, "gmid": gmid, "status": "pending_vetting", "username": username}))
+        return JSONResponse(content=jsonable_encoder({"ok": True, "gmid": gmid, "status": "active", "username": username}))
     finally: put_conn(conn)
 
 @app.get("/api/members/discover")
@@ -1319,7 +1326,7 @@ def api_member_discovery(limit: int = 120):
     profiles = fetch_profiles(5000)
     items = []
     for p in profiles:
-        if p.get("status") not in ("active", "pending_vetting"):
+        if p.get("status") not in ("active",):
             continue
         items.append({
             "gmid": p["gmid"],
@@ -1480,7 +1487,7 @@ def api_admin_unghost_member(member_id: int, request: Request):
                 profile['headline'] = 'Restored Meridian member'
                 profile['biography'] = 'This member record was restored after being ghosted. Update the profile details as needed.'
 
-            restored_status = restored_status if restored_status in ('active', 'pending_vetting') else 'active'
+            restored_status = restored_status if restored_status in ('active',) else 'active'
             cur.execute("UPDATE members SET display_name=%s, email=%s, status=%s, is_system=%s WHERE id=%s",
                         (restored_display, restored_email, restored_status, restored_is_system, member_id))
             cur.execute("""INSERT INTO member_profiles (
@@ -1534,13 +1541,13 @@ def api_debug():
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT COUNT(*) AS c FROM members")
             members = cur.fetchone()["c"]
-            cur.execute("SELECT COUNT(*) AS c FROM members WHERE status IN ('active','pending_vetting')")
+            cur.execute("SELECT COUNT(*) AS c FROM members WHERE status IN ('active')")
             community_members = cur.fetchone()["c"]
             cur.execute("SELECT COUNT(*) AS c FROM members WHERE alias_name IS NOT NULL")
             alias_members = cur.fetchone()["c"]
             cur.execute("SELECT COUNT(*) AS c FROM member_profiles")
             profile_rows = cur.fetchone()["c"]
-            cur.execute("SELECT COUNT(*) AS c FROM members m JOIN member_profiles p ON p.member_id=m.id WHERE m.status IN ('active','pending_vetting')")
+            cur.execute("SELECT COUNT(*) AS c FROM members m JOIN member_profiles p ON p.member_id=m.id WHERE m.status IN ('active')")
             canonical_visible_members = cur.fetchone()["c"]
             cur.execute("SELECT COUNT(*) AS c FROM members WHERE status='active'")
             active_members = cur.fetchone()["c"]
