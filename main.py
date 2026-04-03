@@ -6,12 +6,57 @@ from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from threading import Lock
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from psycopg2.pool import SimpleConnectionPool
 from psycopg2.extras import Json, RealDictCursor
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+TEMP_PRIVATE_CHATS = {}
+TEMP_PRIVATE_CHAT_LOCK = Lock()
+
+def ensure_temp_private_chat(ping_id: int, requester_gmid: str, target_gmid: str):
+    with TEMP_PRIVATE_CHAT_LOCK:
+        room = TEMP_PRIVATE_CHATS.get(ping_id)
+        if not room:
+            room = {
+                "ping_id": ping_id,
+                "users": {requester_gmid, target_gmid},
+                "messages": [],
+                "created_at": datetime.utcnow().isoformat() + "Z",
+                "closed": False,
+                "closed_by": None,
+                "closed_at": None,
+            }
+            TEMP_PRIVATE_CHATS[ping_id] = room
+        return room
+
+def close_temp_private_chat(ping_id: int, closed_by: str | None = None):
+    with TEMP_PRIVATE_CHAT_LOCK:
+        room = TEMP_PRIVATE_CHATS.pop(ping_id, None)
+        if room is not None:
+            room["closed"] = True
+            room["closed_by"] = closed_by
+            room["closed_at"] = datetime.utcnow().isoformat() + "Z"
+        return room
+
+def get_temp_private_chat(ping_id: int):
+    with TEMP_PRIVATE_CHAT_LOCK:
+        room = TEMP_PRIVATE_CHATS.get(ping_id)
+        if not room:
+            return None
+        return {
+            "ping_id": room["ping_id"],
+            "users": set(room["users"]),
+            "messages": list(room["messages"]),
+            "created_at": room["created_at"],
+            "closed": room.get("closed", False),
+            "closed_by": room.get("closed_by"),
+            "closed_at": room.get("closed_at"),
+        }
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://127.0.0.1:8000")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "meridian-dev-session-secret-change-me")
@@ -1512,6 +1557,89 @@ async def api_chat_send(ping_id: int, request: Request):
             cur.execute("INSERT INTO chat_messages (ping_id, sender_gmid, message) VALUES (%s,%s,%s)", (ping_id, sender, msg))
         return JSONResponse(content=jsonable_encoder({"ok": True}))
     finally: put_conn(conn)
+
+def _get_private_channel_ping(conn, ping_id: int, member_gmid: str):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("""SELECT id, requester_gmid, target_gmid, status
+                       FROM pings WHERE id=%s""", (ping_id,))
+        ping = cur.fetchone()
+        if not ping:
+            raise HTTPException(status_code=404, detail="ping not found")
+        if ping["status"] != "accepted":
+            raise HTTPException(status_code=400, detail="private channel available only after accept")
+        if member_gmid not in (ping["requester_gmid"], ping["target_gmid"]):
+            raise HTTPException(status_code=403, detail="Not part of this introduction")
+        return ping
+
+@app.post("/api/private-chat/{ping_id}/open")
+def api_private_chat_open(ping_id: int, request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    conn = get_conn()
+    try:
+        ping = _get_private_channel_ping(conn, ping_id, member["gmid"])
+        room = ensure_temp_private_chat(ping_id, ping["requester_gmid"], ping["target_gmid"])
+        return JSONResponse(content=jsonable_encoder({"ok": True, "room": room, "window_url": f"/private-channel/{ping_id}"}))
+    finally:
+        put_conn(conn)
+
+@app.get("/api/private-chat/{ping_id}")
+def api_private_chat_get(ping_id: int, request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    conn = get_conn()
+    try:
+        ping = _get_private_channel_ping(conn, ping_id, member["gmid"])
+        room = get_temp_private_chat(ping_id)
+        if not room:
+            return JSONResponse(content=jsonable_encoder({"ok": False, "closed": True, "messages": [], "reason": "This private channel has been closed."}))
+        if member["gmid"] not in room["users"]:
+            raise HTTPException(status_code=403, detail="Not part of this private channel")
+        other_gmid = ping["target_gmid"] if member["gmid"] == ping["requester_gmid"] else ping["requester_gmid"]
+        return JSONResponse(content=jsonable_encoder({"ok": True, "closed": False, "other_gmid": other_gmid, "messages": room["messages"], "created_at": room["created_at"]}))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/private-chat/{ping_id}/send")
+async def api_private_chat_send(ping_id: int, request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    data = await request.json()
+    msg = (data.get("message") or "").strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="message required")
+    conn = get_conn()
+    try:
+        ping = _get_private_channel_ping(conn, ping_id, member["gmid"])
+        room = ensure_temp_private_chat(ping_id, ping["requester_gmid"], ping["target_gmid"])
+        with TEMP_PRIVATE_CHAT_LOCK:
+            room = TEMP_PRIVATE_CHATS.get(ping_id)
+            if not room:
+                raise HTTPException(status_code=410, detail="private channel closed")
+            room["messages"].append({
+                "sender_gmid": member["gmid"],
+                "message": msg,
+                "created_at": datetime.utcnow().isoformat() + "Z"
+            })
+        return JSONResponse(content=jsonable_encoder({"ok": True}))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/private-chat/{ping_id}/close")
+def api_private_chat_close(ping_id: int, request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    conn = get_conn()
+    try:
+        _get_private_channel_ping(conn, ping_id, member["gmid"])
+        close_temp_private_chat(ping_id, member["gmid"])
+        return JSONResponse(content=jsonable_encoder({"ok": True, "closed": True}))
+    finally:
+        put_conn(conn)
 
 @app.get("/api/network/{gmid}")
 def api_network(gmid: str):

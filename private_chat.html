@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Meridian — Private Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--obsidian:#060608;--panel:#0F1018;--surface:#171825;--rim:rgba(255,255,255,.08);--gold:#C9A84C;--gold-light:#E4C778;--blue:#63acff;--snow:#E9EAF4;--muted:#A8AECC;--ink:#101013;--chat1:rgba(234,223,175,.96);--chat2:rgba(226,210,149,.93)}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at top, rgba(99,172,255,.08), transparent 30%), var(--obsidian);color:var(--snow);font-family:Montserrat,sans-serif}
+    .wrap{max-width:1120px;margin:0 auto;padding:26px}.shell{border:1px solid var(--rim);border-radius:18px;background:linear-gradient(180deg,rgba(15,16,24,.96),rgba(9,10,16,.97));padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+    .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}.title{font-family:'Cormorant Garamond',serif;font-size:40px;letter-spacing:.04em}.sub{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);opacity:.75;margin-top:4px}.pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid rgba(99,172,255,.28);background:rgba(99,172,255,.08);color:#d9e6ff;font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
+    .hero{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-top:18px}.card{border:1px solid rgba(255,255,255,.05);border-radius:14px;background:rgba(255,255,255,.02);padding:16px}.label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}.tiny{font-size:12px;color:rgba(168,174,204,.78);line-height:1.7}
+    .chat{margin-top:18px;border:1px solid rgba(201,168,76,.22);border-radius:14px;background:linear-gradient(180deg,var(--chat1),var(--chat2));min-height:380px;max-height:520px;overflow:auto;padding:18px}.msg{display:flex;margin-bottom:12px}.msg.me{justify-content:flex-end}.bubble{max-width:74%;padding:13px 14px;border-radius:14px;background:rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.08)}.msg.me .bubble{background:rgba(17,18,23,.92);color:#f4eac6;border-color:rgba(17,18,23,.94)}.meta{font-size:8px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px;color:rgba(17,18,23,.62)}.msg.me .meta{color:#eadca9}.text{line-height:1.65;color:var(--ink)}.msg.me .text{color:#f4eac6}
+    .composer{display:flex;gap:10px;margin-top:14px}.composer textarea{flex:1;min-height:110px;border-radius:12px;border:1px solid rgba(201,168,76,.32);padding:14px;background:rgba(235,225,181,.9);color:var(--ink);font-family:Montserrat,sans-serif}.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.btn{border:1px solid var(--rim);background:transparent;color:var(--muted);padding:11px 14px;border-radius:10px;font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;cursor:pointer}.btn.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}.btn.blue{border-color:rgba(99,172,255,.35);color:var(--blue)}.btn.red{border-color:rgba(248,113,113,.32);color:#f7aaaa}
+    .notice{margin-top:12px;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);font-size:12px;color:rgba(233,234,244,.88)}
+    @media (max-width:900px){.hero{grid-template-columns:1fr}.wrap{padding:16px}.title{font-size:32px}.composer{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="shell">
+      <div class="top">
+        <div>
+          <div class="title">Private Room</div>
+          <div class="sub">Off-record Meridian conversation · deleted when either party closes</div>
+        </div>
+        <div class="pill">Non-Persistent Channel</div>
+      </div>
+
+      <div class="hero">
+        <div class="card">
+          <div class="label">Private Room</div>
+          <div class="tiny">This room is intentionally not written to Meridian's persistent chat history. Once either person closes this room, the off-record conversation is deleted for both sides.</div>
+        </div>
+        <div class="card">
+          <div class="label">Connected With</div>
+          <div id="otherAlias" style="font-family:'Cormorant Garamond',serif;font-size:28px">Loading…</div>
+          <div class="tiny" id="statusCopy" style="margin-top:8px">Opening private room…</div>
+        </div>
+      </div>
+
+      <div class="chat" id="chatBox"><div class="tiny">Loading private room…</div></div>
+      <div class="composer">
+        <textarea id="message" placeholder="Write in the private room…"></textarea>
+        <button class="btn gold" type="button" onclick="sendMessage()">Send Message</button>
+      </div>
+      <div class="btns">
+        <button class="btn red" type="button" onclick="closeAndExit()">Close and Exit Conversation</button>
+        <button class="btn blue" type="button" onclick="closeAndOpenPersistent()">Close and Open Persistent Chat Window</button>
+      </div>
+      <div class="notice" id="notice">This private room will remain open only while both sides keep it open.</div>
+    </div>
+  </div>
+<script>
+  const PING_ID = Number('{{PING_ID}}');
+  const GMID = '{{GMID}}';
+  let pollTimer = null;
+  let closedLocally = false;
+
+  async function api(url, options={}){
+    const res = await fetch(url, { credentials:'same-origin', headers:{ 'Content-Type':'application/json', ...(options.headers||{}) }, ...options });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.detail || 'Request failed');
+    return data;
+  }
+  function escapeHtml(v){ return String(v ?? '').replace(/[&<>'"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[s])); }
+  function fmt(v){ if(!v) return '—'; try{return new Date(v).toLocaleString();}catch(e){return v;} }
+  async function loadProfile(gmid){ const res = await api(`/api/profile/${gmid}`); return res.profile || {}; }
+
+  async function refresh(){
+    try {
+      const res = await api(`/api/private-chat/${PING_ID}`);
+      if(res.closed || !res.ok){
+        document.getElementById('statusCopy').textContent = 'This private room has been closed.';
+        document.getElementById('chatBox').innerHTML = '<div class="tiny">This private room has been closed by one of the participants.</div>';
+        stopPolling();
+        return;
+      }
+      const profile = await loadProfile(res.other_gmid);
+      document.getElementById('otherAlias').textContent = profile.alias || profile.alias_name || 'Connected Member';
+      document.getElementById('statusCopy').textContent = `Opened ${fmt(res.created_at)} · off-record room active`;
+      const box = document.getElementById('chatBox');
+      const messages = res.messages || [];
+      if(!messages.length){ box.innerHTML = '<div class="tiny">No private messages yet. This room will not be saved once closed.</div>'; return; }
+      box.innerHTML = '';
+      for(const m of messages){
+        const mine = m.sender_gmid === GMID;
+        const who = mine ? 'You' : (profile.alias || profile.alias_name || 'Connected Member');
+        const row = document.createElement('div');
+        row.className = 'msg' + (mine ? ' me' : '');
+        row.innerHTML = `<div class="bubble"><div class="meta">${escapeHtml(who)} · ${escapeHtml(fmt(m.created_at))}</div><div class="text">${escapeHtml(m.message)}</div></div>`;
+        box.appendChild(row);
+      }
+      box.scrollTop = box.scrollHeight;
+    } catch(e){
+      document.getElementById('notice').textContent = e.message || 'Private room unavailable.';
+    }
+  }
+
+  async function sendMessage(){
+    const ta = document.getElementById('message');
+    const message = ta.value.trim();
+    if(!message) return;
+    await api(`/api/private-chat/${PING_ID}/send`, { method:'POST', body: JSON.stringify({ message }) });
+    ta.value='';
+    await refresh();
+  }
+
+  async function closePrivateRoom(){
+    if(closedLocally) return;
+    closedLocally = true;
+    try { await fetch(`/api/private-chat/${PING_ID}/close`, { method:'POST', credentials:'same-origin', keepalive:true, headers:{'Content-Type':'application/json'} }); } catch(e){}
+  }
+  async function closeAndExit(){ await closePrivateRoom(); window.close(); }
+  async function closeAndOpenPersistent(){
+    await closePrivateRoom();
+    try {
+      if(window.opener && typeof window.opener.focusPersistentChat === 'function'){
+        window.opener.focusPersistentChat(PING_ID);
+        window.opener.focus();
+      }
+    } catch(e){}
+    window.close();
+  }
+  function startPolling(){ stopPolling(); pollTimer = setInterval(()=>{ if(!document.hidden) refresh(); }, 3000); }
+  function stopPolling(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
+  window.addEventListener('beforeunload', ()=>{ if(!closedLocally){ try{ fetch(`/api/private-chat/${PING_ID}/close`, { method:'POST', credentials:'same-origin', keepalive:true, headers:{'Content-Type':'application/json'} }); } catch(e){} } });
+  window.addEventListener('keydown', (e)=>{ if((e.ctrlKey || e.metaKey) && e.key === 'Enter') sendMessage(); });
+
+  (async()=>{
+    await api(`/api/private-chat/${PING_ID}/open`, { method:'POST' });
+    await refresh();
+    startPolling();
+  })();
+</script>
+</body>
+</html>

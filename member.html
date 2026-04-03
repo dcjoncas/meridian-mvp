@@ -25,7 +25,7 @@
     .status{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--rim);font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
     .status.pending{color:var(--gold);border-color:rgba(201,168,76,.28)}.status.accepted{color:var(--green);border-color:rgba(74,222,128,.28)}.status.declined{color:var(--red);border-color:rgba(248,113,113,.28)}
     .detail-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.05)}.detail-title{font-family:'Cormorant Garamond',serif;font-size:34px}.detail-meta{font-size:10px;letter-spacing:.2em;color:var(--platinum);opacity:.58;margin-top:6px;text-transform:uppercase}
-    .detail-block{margin-top:18px;padding:16px;border:1px solid rgba(255,255,255,.05);border-radius:12px;background:rgba(255,255,255,.02)}.detail-label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}.trust-indicator{margin:0 0 14px;padding:12px 14px;border:1px solid rgba(201,168,76,.18);border-radius:12px;background:linear-gradient(180deg, rgba(201,168,76,.08), rgba(255,255,255,.015));box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 10px 30px rgba(0,0,0,.16)}.trust-badge{display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border-radius:999px;border:1px solid rgba(201,168,76,.22);background:rgba(201,168,76,.10);color:var(--gold-light);font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}.trust-copy{margin-top:9px;font-size:11px;color:var(--platinum);opacity:.72}
+    .detail-block{margin-top:18px;padding:16px;border:1px solid rgba(255,255,255,.05);border-radius:12px;background:rgba(255,255,255,.02)}.detail-label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}.trust-indicator{margin:0 0 14px;padding:12px 14px;border:1px solid rgba(201,168,76,.18);border-radius:12px;background:linear-gradient(180deg, rgba(201,168,76,.08), rgba(255,255,255,.015));box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 10px 30px rgba(0,0,0,.16)}.trust-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.trust-badge{display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border-radius:999px;border:1px solid rgba(201,168,76,.22);background:rgba(201,168,76,.10);color:var(--gold-light);font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}.trust-copy{margin-top:9px;font-size:11px;color:var(--platinum);opacity:.72}.trust-link{display:inline-flex;align-items:center;gap:8px;color:#d9e6ff;border:1px solid rgba(99,172,255,.28);background:rgba(99,172,255,.08);padding:8px 11px;border-radius:999px;font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;text-decoration:none;cursor:pointer}.trust-link:hover{background:rgba(99,172,255,.14)}
     .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.btn{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:11px 14px;border-radius:8px;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;cursor:pointer}.btn.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}.btn.green{border-color:rgba(74,222,128,.32);color:var(--green)}.btn.red{border-color:rgba(248,113,113,.32);color:var(--red)}.btn.blue{border-color:rgba(99,172,255,.35);color:var(--blue)}
     .empty{padding:38px;text-align:center;border:1px dashed rgba(255,255,255,.08);border-radius:12px;color:rgba(168,174,204,.48);font-family:'Cormorant Garamond',serif;font-size:22px}
     .chat-wrap{margin-top:18px}.chat-box{min-height:300px;max-height:420px;overflow:auto;border:1px solid rgba(201,168,76,.25);border-radius:12px;padding:16px;background:linear-gradient(180deg,var(--chat1),var(--chat2))}
@@ -396,7 +396,7 @@
       if(currentItem.status === 'accepted'){ await loadChat(); startChatPolling(); } else stopChatPolling();
     }
     async function respondCurrent(status){ if(!currentItem) return; await api(`/api/ping/${currentItem.id}/respond`, { method:'POST', body: JSON.stringify({ status }) }); await loadLists(); currentItem = activeItems.find(x => x.id === currentItem.id) || currentItem; await renderDetail(); }
-    async function loadChat(){ if(!currentItem || currentItem.status !== 'accepted') return; const res = await api(`/api/chat/${currentItem.id}`); const box = $('chatBox'); if(!box) return; if(!(res.messages||[]).length){ box.innerHTML = '<div class="tiny">No messages yet. Start the conversation below.</div>'; return; } box.innerHTML = ''; for(const m of res.messages){ const mine = m.sender_gmid === GMID; const who = mine ? 'You' : aliasValue(m.sender_gmid); const msg = document.createElement('div'); msg.className = 'msg' + (mine ? ' me' : ''); msg.innerHTML = `<div class="bubble"><div class="msg-meta">${who} · ${fmt(m.created_at)}</div><div class="msg-text">${escapeHtml(m.message)}</div></div>`; box.appendChild(msg); } box.scrollTop = box.scrollHeight; }
+    async function loadChat(){ if(!currentItem || currentItem.status !== 'accepted') return; const res = await api(`/api/chat/${currentItem.id}`); currentChatMeta = res; const host = document.querySelector('.chat-wrap'); if(host) host.innerHTML = `${renderTrustIndicator()}<div class="detail-block"><div class="detail-label">Secure Channel</div><div class="chat-box" id="chatBox"><div class="tiny">Loading chat…</div></div><div class="composer"><textarea id="chatMessage" placeholder="Write a message…"></textarea><button class="btn gold" onclick="sendChat()">Send Message</button></div></div>`; const box = $('chatBox'); if(!box) return; if(!(res.messages||[]).length){ box.innerHTML = '<div class="tiny">No messages yet. Start the conversation below.</div>'; return; } box.innerHTML = ''; for(const m of res.messages){ const mine = m.sender_gmid === GMID; const who = mine ? 'You' : aliasValue(m.sender_gmid); const msg = document.createElement('div'); msg.className = 'msg' + (mine ? ' me' : ''); msg.innerHTML = `<div class="bubble"><div class="msg-meta">${who} · ${fmt(m.created_at)}</div><div class="msg-text">${escapeHtml(m.message)}</div></div>`; box.appendChild(msg); } box.scrollTop = box.scrollHeight; }
     async function sendChat(){ const ta = $('chatMessage'); if(!ta || !currentItem) return; const message = ta.value.trim(); if(!message) return; await api(`/api/chat/${currentItem.id}/send`, { method:'POST', body: JSON.stringify({ sender_gmid: GMID, message }) }); ta.value = ''; await loadChat(); }
     function startChatPolling(){ stopChatPolling(); chatTimer = setInterval(()=>{ if(!document.hidden) loadChat(); }, 8000); }
     function stopChatPolling(){ if(chatTimer){ clearInterval(chatTimer); chatTimer = null; } }
@@ -406,8 +406,26 @@
       if(!currentItem || currentItem.status !== 'accepted') return '';
       const nda = (currentChatMeta && currentChatMeta.nda) || {};
       if(!nda.fully_signed) return '';
-      return `<div class="trust-indicator"><div class="trust-badge">🔒 Private Channel</div><div class="trust-copy">Both parties have acknowledged Meridian confidentiality for this connection.</div></div>`;
+      return `<div class="trust-indicator"><div class="trust-row"><div class="trust-badge">🔒 Private Channel</div><button class="trust-link" type="button" onclick="openPrivateOffRecord()">Open Non-Persistent Private Room</button></div><div class="trust-copy">Both parties have acknowledged Meridian confidentiality for this connection. Use the private room for an off-record conversation that is deleted when either party closes it.</div></div>`;
     }
+
+    async function openPrivateOffRecord(){
+      if(!currentItem || currentItem.status !== 'accepted') return;
+      try {
+        const res = await api(`/api/private-chat/${currentItem.id}/open`, { method:'POST' });
+        const popup = window.open(res.window_url, `meridian_private_${currentItem.id}`, 'width=980,height=760,menubar=no,toolbar=no,location=no,status=no');
+        if(!popup) throw new Error('Popup blocked');
+      } catch (e) {
+        showNotice('Private room unavailable', e.message || 'The off-record room could not be opened right now.', 'error');
+      }
+    }
+    async function focusPersistentChat(pingId){
+      try {
+        await openNetworkThread(pingId);
+        window.focus();
+      } catch(e){}
+    }
+    window.focusPersistentChat = focusPersistentChat;
 
     function startListPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer = setInterval(()=>{ if(!document.hidden) loadLists(); }, 20000); }
     function escapeHtml(v){ return String(v ?? '').replace(/[&<>'"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[s])); }
