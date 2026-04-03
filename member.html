@@ -25,7 +25,7 @@
     .status{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--rim);font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
     .status.pending{color:var(--gold);border-color:rgba(201,168,76,.28)}.status.accepted{color:var(--green);border-color:rgba(74,222,128,.28)}.status.declined{color:var(--red);border-color:rgba(248,113,113,.28)}
     .detail-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.05)}.detail-title{font-family:'Cormorant Garamond',serif;font-size:34px}.detail-meta{font-size:10px;letter-spacing:.2em;color:var(--platinum);opacity:.58;margin-top:6px;text-transform:uppercase}
-    .detail-block{margin-top:18px;padding:16px;border:1px solid rgba(255,255,255,.05);border-radius:12px;background:rgba(255,255,255,.02)}.detail-label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+    .detail-block{margin-top:18px;padding:16px;border:1px solid rgba(255,255,255,.05);border-radius:12px;background:rgba(255,255,255,.02)}.detail-label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}.trust-indicator{margin:0 0 14px;padding:12px 14px;border:1px solid rgba(201,168,76,.18);border-radius:12px;background:linear-gradient(180deg, rgba(201,168,76,.08), rgba(255,255,255,.015));box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 10px 30px rgba(0,0,0,.16)}.trust-badge{display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border-radius:999px;border:1px solid rgba(201,168,76,.22);background:rgba(201,168,76,.10);color:var(--gold-light);font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}.trust-copy{margin-top:9px;font-size:11px;color:var(--platinum);opacity:.72}
     .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.btn{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:11px 14px;border-radius:8px;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;cursor:pointer}.btn.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}.btn.green{border-color:rgba(74,222,128,.32);color:var(--green)}.btn.red{border-color:rgba(248,113,113,.32);color:var(--red)}.btn.blue{border-color:rgba(99,172,255,.35);color:var(--blue)}
     .empty{padding:38px;text-align:center;border:1px dashed rgba(255,255,255,.08);border-radius:12px;color:rgba(168,174,204,.48);font-family:'Cormorant Garamond',serif;font-size:22px}
     .chat-wrap{margin-top:18px}.chat-box{min-height:300px;max-height:420px;overflow:auto;border:1px solid rgba(201,168,76,.25);border-radius:12px;padding:16px;background:linear-gradient(180deg,var(--chat1),var(--chat2))}
@@ -379,7 +379,7 @@
         ? `<button class="btn green" onclick="respondCurrent('accepted')">Accept</button><button class="btn red" onclick="respondCurrent('declined')">Decline</button>`
         : `<button class="btn" disabled style="opacity:.55;cursor:default">${currentItem.status.toUpperCase()}</button>`;
       const chatSection = currentItem.status === 'accepted'
-        ? `<div class="chat-wrap">${renderNdaPanel()}<div class="detail-block"><div class="detail-label">Secure Channel</div><div class="chat-box" id="chatBox"><div class="tiny">Loading chat…</div></div><div class="composer"><textarea id="chatMessage" placeholder="Write a message…"></textarea><button class="btn gold" onclick="sendChat()">Send Message</button></div></div></div>`
+        ? `<div class="chat-wrap">${renderTrustIndicator()}<div class="detail-block"><div class="detail-label">Secure Channel</div><div class="chat-box" id="chatBox"><div class="tiny">Loading chat…</div></div><div class="composer"><textarea id="chatMessage" placeholder="Write a message…"></textarea><button class="btn gold" onclick="sendChat()">Send Message</button></div></div></div>`
         : '';
       $('detailPane').innerHTML = `
         <div class="detail-head">
@@ -402,34 +402,11 @@
     function stopChatPolling(){ if(chatTimer){ clearInterval(chatTimer); chatTimer = null; } }
 
     let currentChatMeta = null;
-    function ndaPartyLabel(which){
-      if(!currentItem) return which === 'requester' ? 'Sender' : 'Recipient';
-      if(which === 'requester') return currentItem.requester_gmid === GMID ? 'You' : aliasValue(currentItem.requester_gmid);
-      return currentItem.target_gmid === GMID ? 'You' : aliasValue(currentItem.target_gmid);
-    }
-    function renderNdaPanel(){
+    function renderTrustIndicator(){
       if(!currentItem || currentItem.status !== 'accepted') return '';
       const nda = (currentChatMeta && currentChatMeta.nda) || {};
-      const requesterSigned = !!nda.requester_signed_at;
-      const targetSigned = !!nda.target_signed_at;
-      const fullySigned = !!nda.fully_signed;
-      const amRequester = currentItem.requester_gmid === GMID;
-      const iSigned = amRequester ? requesterSigned : targetSigned;
-      const mySignedAt = amRequester ? nda.requester_signed_at : nda.target_signed_at;
-      const button = iSigned
-        ? `<button class="btn platinum" type="button" disabled style="opacity:.7;cursor:default">Signed ${escapeHtml(fmt(mySignedAt))}</button>`
-        : `<button class="btn platinum" type="button" onclick="signCurrentNda()">Sign Mutual NDA</button>`;
-      const statusLabel = fullySigned ? 'Fully executed mutual confidentiality acknowledgment' : 'Waiting for both parties to sign the Meridian mutual confidentiality acknowledgment';
-      return `<div class="nda-panel"><div class="nda-title">Mutual NDA / Confidentiality</div><div class="nda-copy">Both parties can acknowledge that information shared through this Meridian connection will not be disclosed outside Meridian without prior written permission from the other party.</div><div class="nda-meta"><span class="nda-pill ${requesterSigned?'signed':'waiting'}">${escapeHtml(ndaPartyLabel('requester'))}: ${requesterSigned ? 'Signed' : 'Awaiting signature'}</span><span class="nda-pill ${targetSigned?'signed':'waiting'}">${escapeHtml(ndaPartyLabel('target'))}: ${targetSigned ? 'Signed' : 'Awaiting signature'}</span><span class="nda-pill ${fullySigned?'full':'waiting'}">${escapeHtml(statusLabel)}</span></div><div class="nda-actions">${button}</div></div>`;
-    }
-    async function signCurrentNda(){
-      if(!currentItem || currentItem.status !== 'accepted') return;
-      const res = await api(`/api/ping/${currentItem.id}/nda/sign`, { method:'POST' });
-      currentChatMeta = { nda: { requester_signed_at: res.requester_signed_at, target_signed_at: res.target_signed_at, fully_signed: !!res.fully_signed } };
-      const inboxMatch = inboxItems.find(x=>x.id===currentItem.id); if(inboxMatch){ inboxMatch.nda_fully_signed = !!res.fully_signed; }
-      const outboxMatch = outboxItems.find(x=>x.id===currentItem.id); if(outboxMatch){ outboxMatch.nda_fully_signed = !!res.fully_signed; }
-      await renderDetail();
-      showNotice(res.fully_signed ? 'Mutual NDA fully signed' : 'Your NDA signature is recorded', res.fully_signed ? 'Both parties have now acknowledged Meridian confidentiality for this connection.' : 'Meridian is now waiting on the other party to sign.', res.fully_signed ? 'gold' : 'gold');
+      if(!nda.fully_signed) return '';
+      return `<div class="trust-indicator"><div class="trust-badge">🔒 Private Channel</div><div class="trust-copy">Both parties have acknowledged Meridian confidentiality for this connection.</div></div>`;
     }
 
     function startListPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer = setInterval(()=>{ if(!document.hidden) loadLists(); }, 20000); }
