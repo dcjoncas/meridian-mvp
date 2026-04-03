@@ -1,5 +1,5 @@
 
-import os, io, re, html, hashlib, random, secrets, json
+import os, io, re, html, hashlib, random, secrets, json, logging, traceback
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -75,6 +75,11 @@ except Exception:
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 OPENAI_PROJECT_ID = os.getenv("OPENAI_PROJECT_ID", "")
+OPENAI_USE_PROJECT_ID = os.getenv("OPENAI_USE_PROJECT_ID", "").strip().lower() in {"1", "true", "yes", "on"}
+
+logger = logging.getLogger("meridian")
+if not logger.handlers:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
 def get_conn(): return pool.getconn()
@@ -435,13 +440,17 @@ def deterministic_ai_summary(query: str, shortlist: List[Dict[str, Any]]) -> Dic
 
 def get_openai_client():
     if not OPENAI_API_KEY or OpenAI is None:
+        logger.error("AI init failed: missing OPENAI_API_KEY or openai package not available", extra={"has_key": bool(OPENAI_API_KEY), "openai_imported": OpenAI is not None})
         return None
     kwargs = {"api_key": OPENAI_API_KEY}
-    if OPENAI_PROJECT_ID:
+    if OPENAI_USE_PROJECT_ID and OPENAI_PROJECT_ID:
         kwargs["project"] = OPENAI_PROJECT_ID
     try:
-        return OpenAI(**kwargs)
-    except Exception:
+        client = OpenAI(**kwargs)
+        logger.info("AI client ready", extra={"model": OPENAI_MODEL, "has_project_id": bool(OPENAI_PROJECT_ID), "using_project_id": OPENAI_USE_PROJECT_ID and bool(OPENAI_PROJECT_ID)})
+        return client
+    except Exception as exc:
+        logger.exception("AI client construction failed: %s", exc)
         return None
 
 
@@ -449,25 +458,35 @@ def ai_json_response(system_prompt: str, user_payload: Dict[str, Any]) -> Dict[s
     client = get_openai_client()
     if client is None:
         raise HTTPException(status_code=503, detail="AI unavailable. Please retry.")
+    payload_json = json.dumps(user_payload, ensure_ascii=False)
     try:
-        response = client.responses.create(
+        response = client.chat.completions.create(
             model=OPENAI_MODEL,
-            input=[
-                {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-                {"role": "user", "content": [{"type": "text", "text": json.dumps(user_payload, ensure_ascii=False)}]},
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": payload_json},
             ],
-            text={"format": {"type": "json_object"}},
         )
-        raw = getattr(response, "output_text", None)
+        raw = (((response.choices or [None])[0] or {}).message.content if isinstance(((response.choices or [None])[0] or {}), dict) else None)
+        if raw is None:
+            choice = (response.choices or [None])[0]
+            raw = getattr(getattr(choice, "message", None), "content", None)
+        if isinstance(raw, list):
+            raw = "".join(part.get("text", "") if isinstance(part, dict) else getattr(part, "text", "") or "" for part in raw)
         if not raw:
+            logger.error("AI completion returned empty content")
             raise HTTPException(status_code=503, detail="AI unavailable. Please retry.")
         data = json.loads(raw)
         if not isinstance(data, dict):
+            logger.error("AI completion returned non-dict JSON: %s", type(data).__name__)
             raise HTTPException(status_code=503, detail="AI unavailable. Please retry.")
         return data
     except HTTPException:
         raise
-    except Exception:
+    except Exception as exc:
+        logger.exception("AI request failed: %s", exc)
+        logger.error("AI request context", extra={"model": OPENAI_MODEL, "payload_size": len(payload_json), "has_project_id": bool(OPENAI_PROJECT_ID), "using_project_id": OPENAI_USE_PROJECT_ID and bool(OPENAI_PROJECT_ID)})
         raise HTTPException(status_code=503, detail="AI unavailable. Please retry.")
 
 
@@ -809,6 +828,7 @@ def init_schema():
         put_conn(conn)
 
 app = FastAPI(title="Meridian Postgres", version="1.3")
+logger.info("Meridian startup config: ai_key_present=%s model=%s project_id_present=%s use_project_id=%s", bool(OPENAI_API_KEY), OPENAI_MODEL, bool(OPENAI_PROJECT_ID), OPENAI_USE_PROJECT_ID)
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, same_site="lax")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
