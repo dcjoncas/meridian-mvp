@@ -3,114 +3,67 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Meridian — Admin Control Room</title>
+  <title>Meridian — Admin Members</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--obsidian:#060608;--panel:#12121b;--panel2:#101019;--rim:rgba(255,255,255,.08);--gold:#c9a84c;--gold2:#e2c777;--text:#ececf4;--muted:#a8aecc;--green:#58d28f;--red:#ff7f7f;--blue:#8fb4ff}
+    :root{--obsidian:#060608;--panel:#12121b;--rim:rgba(255,255,255,.08);--gold:#c9a84c;--gold2:#e2c777;--text:#ececf4;--muted:#a8aecc;--green:#4dd08b;--red:#ff7f7f}
     *{box-sizing:border-box} body{margin:0;font-family:Montserrat,sans-serif;color:var(--text);background:radial-gradient(circle at top left, rgba(201,168,76,.10), transparent 28%), radial-gradient(circle at bottom right, rgba(87,105,255,.07), transparent 26%), var(--obsidian)}
     body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E")}
-    .shell{max-width:1560px;margin:0 auto;padding:26px 28px 40px;position:relative;z-index:1}.top{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;padding:18px 20px 20px;background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));border:1px solid var(--rim);border-radius:22px;box-shadow:0 20px 60px rgba(0,0,0,.32)}
-    .eyebrow{font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}.brand{font-family:"Cormorant Garamond",serif;font-size:46px;letter-spacing:.06em}.sub{max-width:760px;color:var(--muted);line-height:1.7;font-size:14px}.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.btn{display:inline-flex;align-items:center;justify-content:center;padding:11px 14px;border:1px solid var(--rim);border-radius:12px;background:rgba(255,255,255,.03);color:var(--text);text-decoration:none;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;cursor:pointer}.btn:hover{border-color:rgba(201,168,76,.45);color:var(--gold2)}
-    .hero{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:18px 0}.card{background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));border:1px solid var(--rim);border-radius:18px;padding:18px 20px}.kicker{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}.value{font-family:"Cormorant Garamond",serif;font-size:36px;color:var(--gold2);line-height:1.05;margin-top:8px}.tiny{font-size:12px;color:var(--muted)}
-    .toolbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:18px 0}.search{width:min(360px,100%);background:rgba(255,255,255,.03);border:1px solid var(--rim);border-radius:14px;padding:13px 14px;color:var(--text)}
-    .layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(360px,.8fr);gap:18px}.table-wrap{overflow:auto;border:1px solid var(--rim);border-radius:20px;background:rgba(255,255,255,.02)} table{width:100%;border-collapse:collapse;min-width:1220px} th,td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;text-align:left} thead th{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);background:rgba(255,255,255,.02)} tbody tr:hover{background:rgba(201,168,76,.04)}
-    .alias{color:var(--gold2);font-weight:700}.user{font-weight:700}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px}.stack{display:grid;gap:4px}.badge{display:inline-flex;padding:5px 9px;border-radius:999px;border:1px solid var(--rim);font-size:11px;color:var(--muted)} .badge.green{border-color:rgba(88,210,143,.28);color:#c9f3dc;background:rgba(88,210,143,.09)} .badge.red{border-color:rgba(255,127,127,.28);color:#ffd6d6;background:rgba(255,127,127,.09)} .badge.blue{border-color:rgba(143,180,255,.28);color:#d8e6ff;background:rgba(143,180,255,.09)} .badge.gold{border-color:rgba(201,168,76,.28);color:var(--gold2);background:rgba(201,168,76,.09)}
-    .row-actions{display:flex;gap:8px;flex-wrap:wrap}.mini{padding:8px 10px;font-size:10px;letter-spacing:.14em}.danger{border-color:rgba(255,127,127,.28);color:#ffd6d6}.danger:hover{border-color:rgba(255,127,127,.45)}
-    .side{display:grid;gap:16px}.panel{background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));border:1px solid var(--rim);border-radius:20px;padding:18px}.panel h3{margin:0 0 12px;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}.panel h2{margin:0 0 10px;font-family:"Cormorant Garamond",serif;font-size:34px;color:var(--gold2)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:grid;gap:6px}.label{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)} input,select,textarea{width:100%;background:rgba(255,255,255,.03);border:1px solid var(--rim);border-radius:12px;padding:12px 13px;color:var(--text);font:inherit;outline:none} textarea{min-height:110px;resize:vertical} input:focus,select:focus,textarea:focus{border-color:rgba(201,168,76,.45);box-shadow:0 0 0 4px rgba(201,168,76,.08)}
-    .list{display:grid;gap:10px;max-height:190px;overflow:auto}.item{border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);border-radius:14px;padding:12px 13px}.muted{color:var(--muted)} .notice{display:none;margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--rim);background:rgba(255,255,255,.03);font-size:13px}.notice.show{display:block}.notice.error{border-color:rgba(255,127,127,.28);color:#ffd6d6;background:rgba(255,127,127,.08)}
-    .empty{padding:30px;text-align:center;color:var(--muted)} @media (max-width: 1200px){.layout{grid-template-columns:1fr}.hero{grid-template-columns:repeat(3,1fr)}} @media (max-width: 760px){.shell{padding:18px}.hero{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.brand{font-size:38px}}
+    .shell{max-width:1500px;margin:0 auto;padding:26px 28px 36px;position:relative;z-index:1}.top{display:flex;justify-content:space-between;align-items:end;gap:20px;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid var(--rim)}
+    .brand{font-family:"Cormorant Garamond",serif;font-size:38px;letter-spacing:.08em}.sub{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}.muted{color:var(--muted)}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;padding:11px 14px;border:1px solid var(--rim);border-radius:10px;background:rgba(255,255,255,.03);color:var(--text);text-decoration:none;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;cursor:pointer}.btn:hover{border-color:rgba(201,168,76,.45);color:var(--gold2)}
+    .hero{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0}.card{background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));border:1px solid var(--rim);border-radius:18px;padding:18px 20px}.kicker{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}.value{font-family:"Cormorant Garamond",serif;font-size:36px;color:var(--gold2);line-height:1.05;margin-top:8px}
+    .toolbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:18px 0}.search{width:min(340px,100%);background:rgba(255,255,255,.03);border:1px solid var(--rim);border-radius:14px;padding:13px 14px;color:var(--text)}
+    .table-wrap{overflow:auto;border:1px solid var(--rim);border-radius:18px;background:rgba(255,255,255,.02)} table{width:100%;border-collapse:collapse;min-width:1360px} th,td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;text-align:left} thead th{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);background:rgba(255,255,255,.02)} tbody tr:hover{background:rgba(201,168,76,.04)}
+    .badge{display:inline-flex;padding:5px 8px;border-radius:999px;border:1px solid var(--rim);font-size:11px;color:var(--muted)} .badge.system{border-color:rgba(201,168,76,.28);color:var(--gold2);background:rgba(201,168,76,.08)} .badge.member{border-color:rgba(77,208,139,.22);color:#bcf4d5;background:rgba(77,208,139,.09)} .badge.ghost{border-color:rgba(255,127,127,.25);color:#ffc1c1;background:rgba(255,127,127,.10)}
+    .user{font-weight:700}.alias{color:var(--gold2)} .tiny{font-size:12px;color:var(--muted)} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px}.copy{cursor:pointer;color:var(--gold2)} .copy:hover{text-decoration:underline}
+    .warn{border-color:rgba(255,127,127,.28)!important;color:#ffc6c6!important}.ghost-btn{border-color:rgba(255,127,127,.28);color:#ffc6c6}.ghost-btn:hover{border-color:rgba(255,127,127,.45);color:#ffd9d9}.empty{padding:30px;text-align:center;color:var(--muted)}
+    @media (max-width: 1050px){.hero{grid-template-columns:repeat(2,1fr)}} @media (max-width: 700px){.shell{padding:18px}.hero{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <div class="shell">
     <div class="top">
       <div>
-        <div class="eyebrow">Concierge operations console</div>
-        <div class="brand">Meridian Control Room</div>
-        <div class="sub">Operate member identity, access, and trust-state without losing Meridian’s premium discipline. Update usernames, reset passwords, revoke sessions, add private admin notes, and inspect a member’s network and block relationships from one place.</div>
+        <div class="sub">Separate administrator console</div>
+        <div class="brand">Member Access Directory</div>
+        <div class="muted">Admin view shows both private identity and member-facing identity. Ghost converts a record into <strong>GHOST MEMBER</strong> so historic network links remain intact. Unghost restores the saved identity, profile, and login when needed.</div>
       </div>
       <div class="actions">
         <a class="btn" href="/">Member login</a>
-        <button class="btn" id="reloadBtn">Refresh</button>
+        <a class="btn" href="/rankings">Rankings</a>
         <button class="btn" id="logoutBtn">Logout</button>
       </div>
     </div>
     <div class="hero">
       <div class="card"><div class="kicker">Total members</div><div class="value" id="mTotal">—</div></div>
-      <div class="card"><div class="kicker">Active</div><div class="value" id="mActive">—</div></div>
-      <div class="card"><div class="kicker">Ghosted</div><div class="value" id="mGhosted">—</div></div>
-      <div class="card"><div class="kicker">Locked accounts</div><div class="value" id="mLocked">—</div></div>
-      <div class="card"><div class="kicker">Password change flags</div><div class="value" id="mPW">—</div></div>
+      <div class="card"><div class="kicker">Demo members</div><div class="value" id="mSystem">—</div></div>
+      <div class="card"><div class="kicker">Community members</div><div class="value" id="mCommunity">—</div></div>
+      <div class="card"><div class="kicker">Default demo password</div><div class="value" style="font-size:28px">red123</div></div>
     </div>
     <div class="toolbar">
       <input class="search" id="search" placeholder="Search alias, username, display name, GMID, or email" />
-      <div class="tiny" id="meta">Loading members…</div>
+      <div class="muted" id="meta">Loading members…</div>
     </div>
-    <div class="layout">
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Identity</th><th>GMID</th><th>Status</th><th>Access</th><th>Network</th><th>Actions</th></tr></thead>
-          <tbody id="tbody"></tbody>
-        </table>
-        <div class="empty" id="empty" style="display:none">No members match the current filter.</div>
-      </div>
-      <div class="side">
-        <div class="panel">
-          <h3>Member editor</h3>
-          <h2 id="editorName">Select a member</h2>
-          <div class="grid">
-            <div class="field"><label class="label">Alias</label><input id="fAlias" /></div>
-            <div class="field"><label class="label">Username</label><input id="fUsername" /></div>
-            <div class="field"><label class="label">Display name</label><input id="fDisplay" /></div>
-            <div class="field"><label class="label">Email</label><input id="fEmail" /></div>
-            <div class="field"><label class="label">Status</label><select id="fStatus"><option value="active">Active</option><option value="inactive">Inactive</option><option value="ghosted">Ghosted</option></select></div>
-            <div class="field"><label class="label">Must change password</label><select id="fMust"><option value="false">No</option><option value="true">Yes</option></select></div>
-          </div>
-          <div class="row-actions" style="margin-top:14px">
-            <button class="btn mini" id="saveBtn">Save member</button>
-            <button class="btn mini" id="logoutAllBtn">Logout all sessions</button>
-            <button class="btn mini" id="unlockBtn">Unlock account</button>
-          </div>
-          <div class="notice" id="editorNotice"></div>
-        </div>
-        <div class="panel">
-          <h3>Password control</h3>
-          <div class="field"><label class="label">Temporary or manual password</label><input id="pwInput" placeholder="Leave blank to auto-generate" /></div>
-          <div class="row-actions">
-            <button class="btn mini" id="resetBtn">Reset password</button>
-            <button class="btn mini" id="forceBtn">Force password change</button>
-          </div>
-          <div class="notice" id="pwNotice"></div>
-        </div>
-        <div class="panel">
-          <h3>Admin notes</h3>
-          <div class="field"><label class="label">Internal note</label><textarea id="noteInput" placeholder="Concierge-only note"></textarea></div>
-          <button class="btn mini" id="noteBtn">Add note</button>
-          <div class="notice" id="noteNotice"></div>
-          <div class="list" id="notesList" style="margin-top:14px"></div>
-        </div>
-        <div class="panel">
-          <h3>Network / blocks / audit</h3>
-          <div class="tiny" id="detailMeta">Select a member to inspect accepted connections, block relationships, and audit events.</div>
-          <div class="list" id="connectionsList" style="margin-top:14px"></div>
-          <div class="list" id="blocksList" style="margin-top:14px"></div>
-          <div class="list" id="auditList" style="margin-top:14px"></div>
-        </div>
-      </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Type</th><th>Alias / Username</th><th>GMID</th><th>Display Name</th><th>Email</th><th>Password</th><th>Status</th><th>Last Login</th><th>Action</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="empty" style="display:none">No members match the current filter.</div>
     </div>
   </div>
   <script>
-    const $ = id => document.getElementById(id);
-    let allItems = [];
-    let selected = null;
+    const $ = id => document.getElementById(id); let allItems=[];
     function escapeHtml(v){ return String(v ?? '').replace(/[&<>'"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[s])); }
+    function mask(gmid){ const s=(gmid||'').replace(/[^a-fA-F0-9]/g,''); return s.length<8 ? s : s.substring(0,4)+'·'.repeat(Math.max(4,s.length-8))+s.substring(s.length-4); }
     function fmt(ts){ if(!ts) return '—'; try{return new Date(ts).toLocaleString();}catch{return ts;} }
-    function showNotice(id, msg, isError=false){ const el=$(id); el.textContent=msg; el.className='notice show'+(isError?' error':''); }
-    async function api(url, opts={}){ const res=await fetch(url, Object.assign({headers:{'Content-Type':'application/json'}}, opts)); let data={}; try{ data=await res.json(); }catch{} if(!res.ok) throw new Error(data.detail || 'Request failed'); return data; }
-    function statusBadge(row){ if(row.status==='ghosted') return '<span class="badge red">Ghosted</span>'; if(row.status==='inactive') return '<span class="badge blue">Inactive</span>'; return '<span class="badge green">Active</span>'; }
-    function accessBadges(row){ let out = [row.is_system ? '<span class="badge gold">Demo</span>' : '<span class="badge blue">Member</span>']; if(row.must_change_password) out.push('<span class="badge red">PW change</span>'); if(row.locked_until) out.push('<span class="badge red">Locked</span>'); return out.join(' '); }
+    async function api(url, opts={}){ const res=await fetch(url, Object.assign({headers:{'Content-Type':'application/json'}},opts)); let data={}; try{data=await res.json();}catch{} if(!res.ok) throw new Error(data.detail||'Request failed'); return data; }
+    function statusBadge(row){ if(row.status==='ghosted') return '<span class="badge ghost">Ghosted</span>'; return `<span class="badge ${row.is_system?'system':'member'}">${row.is_system?'Demo':'Member'}</span>`; }
     function render(){
       const q=($('search').value||'').trim().toLowerCase();
       const items=allItems.filter(x=> !q || [x.alias,x.username,x.display_name,x.gmid,x.email].some(v=>String(v||'').toLowerCase().includes(q)));
@@ -118,52 +71,43 @@
       $('tbody').innerHTML=''; $('empty').style.display=items.length?'none':'block';
       for(const row of items){
         const tr=document.createElement('tr');
-        tr.innerHTML=`<td class="stack"><div class="alias">${escapeHtml(row.alias||'—')}</div><div class="user">${escapeHtml(row.display_name||'—')}</div><div class="tiny">${escapeHtml(row.email||'no email')}</div><div class="mono">@${escapeHtml(row.username||'—')}</div></td>
-          <td class="stack"><div class="mono">${escapeHtml(row.gmid)}</div><div class="tiny">Created ${escapeHtml(fmt(row.created_at))}</div></td>
-          <td class="stack"><div>${statusBadge(row)}</div><div class="tiny">Last login: ${escapeHtml(fmt(row.last_login_at))}</div><div class="tiny">Failed logins: ${escapeHtml(row.failed_login_count)}</div></td>
-          <td class="stack"><div>${accessBadges(row)}</div><div class="tiny">Session v${escapeHtml(row.session_version)}</div></td>
-          <td class="stack"><div class="tiny">Connections: ${escapeHtml(row.connection_count)}</div><div class="tiny">Blocks: ${escapeHtml(row.block_count)}</div><div class="tiny">Notes: ${escapeHtml(row.notes_count)}</div></td>
-          <td><div class="row-actions">
-            <button class="btn mini" data-edit="${row.id}">Edit</button>
-            <button class="btn mini" data-view="${row.id}">Inspect</button>
-            <button class="btn mini" data-reset="${row.id}">Reset PW</button>
-            <button class="btn mini" data-toggle="${row.id}">${row.status==='ghosted'?'Unghost':'Ghost'}</button>
-          </div></td>`;
+        tr.innerHTML=`<td>${statusBadge(row)}</td>
+          <td><div class="alias">${escapeHtml(row.alias)}</div><div class="user copy" data-copy="${escapeHtml(row.username||'')}">${escapeHtml(row.username||'—')}</div><div class="tiny">click username to copy</div></td>
+          <td><div class="mono">${escapeHtml(mask(row.gmid))}</div><div class="tiny">${escapeHtml(row.gmid)}</div></td>
+          <td>${escapeHtml(row.display_name||'—')}</td>
+          <td>${escapeHtml(row.email||'—')}</td>
+          <td><div class="mono">${escapeHtml(row.password_hint || (row.status==='ghosted' ? 'disabled' : 'Member-managed'))}</div><div class="tiny">${row.is_system?'Shared demo password':(row.status==='ghosted'?'Login removed':'Invite or temp password set at creation')}</div></td>
+          <td><div>${escapeHtml(row.status||'—')}</div><div class="tiny">${row.must_change_password?'must change password':''}</div></td>
+          <td>${escapeHtml(fmt(row.last_login_at))}</td>
+          <td>${row.status==='ghosted' ? `<button class="btn" data-unghost="${row.id}" data-alias="${escapeHtml(row.alias)}">Unghost Member</button>` : `<button class="btn ghost-btn" data-delete="${row.id}" data-alias="${escapeHtml(row.alias)}">Ghost Member</button>`}</td>`;
         $('tbody').appendChild(tr);
       }
-      document.querySelectorAll('[data-edit],[data-view]').forEach(btn=>btn.onclick=()=>selectMember(Number(btn.dataset.edit||btn.dataset.view)));
-      document.querySelectorAll('[data-reset]').forEach(btn=>btn.onclick=()=>{ selectMember(Number(btn.dataset.reset)); setTimeout(()=>$('pwInput').focus(),80); });
-      document.querySelectorAll('[data-toggle]').forEach(btn=>btn.onclick=async()=>{ const id=Number(btn.dataset.toggle); const row=allItems.find(x=>x.id===id); if(!row) return; if(row.status==='ghosted'){ await api(`/api/admin/members/${id}/unghost`,{method:'POST'}); } else { if(!confirm(`Convert ${row.alias||row.display_name} into GHOST MEMBER?`)) return; await api(`/api/admin/members/${id}/delete`,{method:'POST'}); } await load(); if(selected && selected.id===id) await selectMember(id); });
+      document.querySelectorAll('[data-copy]').forEach(el=>el.onclick=async()=>{ try{ await navigator.clipboard.writeText(el.getAttribute('data-copy')); el.textContent='Copied'; setTimeout(()=>el.textContent=el.getAttribute('data-copy'),900);}catch{}});
+      document.querySelectorAll('[data-delete]').forEach(btn=>btn.onclick=async()=>{
+        const id=btn.getAttribute('data-delete'); const alias=btn.getAttribute('data-alias');
+        if(!confirm(`Convert ${alias} into GHOST MEMBER? Existing links remain, but login access is removed.`)) return;
+        btn.disabled=true;
+        try{ await api(`/api/admin/members/${id}/delete`, {method:'POST'}); await load(); }
+        catch(err){ alert(err.message); btn.disabled=false; }
+      });
+      document.querySelectorAll('[data-unghost]').forEach(btn=>btn.onclick=async()=>{
+        const id=btn.getAttribute('data-unghost'); const alias=btn.getAttribute('data-alias');
+        if(!confirm(`Restore ${alias} from ghosted state?`)) return;
+        btn.disabled=true;
+        try{
+          const result = await api(`/api/admin/members/${id}/unghost`, {method:'POST'});
+          let note = 'Member restored.';
+          if(result.username) note += `\nUsername: ${result.username}`;
+          if(result.temporary_password) note += `\nTemporary password: ${result.temporary_password}`;
+          alert(note);
+          await load();
+        }
+        catch(err){ alert(err.message); btn.disabled=false; }
+      });
     }
-    async function load(){
-      const data=await api('/api/admin/members'); allItems=data.items||[];
-      $('mTotal').textContent=allItems.length;
-      $('mActive').textContent=allItems.filter(x=>x.status==='active').length;
-      $('mGhosted').textContent=allItems.filter(x=>x.status==='ghosted').length;
-      $('mLocked').textContent=allItems.filter(x=>x.locked_until).length;
-      $('mPW').textContent=allItems.filter(x=>x.must_change_password).length;
-      render();
-    }
-    async function selectMember(id){
-      const data=await api(`/api/admin/members/${id}/detail`); selected=data.member;
-      $('editorName').textContent=selected.alias_name || selected.display_name || 'Member';
-      $('fAlias').value=selected.alias_name||''; $('fUsername').value=selected.username||''; $('fDisplay').value=selected.display_name||''; $('fEmail').value=selected.email||''; $('fStatus').value=selected.status||'active'; $('fMust').value=String(!!selected.must_change_password);
-      $('detailMeta').textContent=`${selected.display_name || 'Member'} · ${selected.gmid}`;
-      $('notesList').innerHTML=(data.notes||[]).map(n=>`<div class="item"><div class="tiny">${escapeHtml(fmt(n.created_at))} · ${escapeHtml(n.admin_username)}</div><div>${escapeHtml(n.note)}</div></div>`).join('') || '<div class="tiny muted">No admin notes yet.</div>';
-      $('connectionsList').innerHTML=(data.connections||[]).map(n=>`<div class="item"><div class="tiny">Accepted connection</div><div>${escapeHtml(n.other_alias || n.other_display_name || n.other_gmid)}</div><div class="tiny">${escapeHtml(fmt(n.created_at))}</div></div>`).join('') || '<div class="tiny muted">No accepted connections.</div>';
-      $('blocksList').innerHTML=(data.blocks||[]).map(n=>`<div class="item"><div>${escapeHtml(n.blocker_alias || n.blocker_gmid)} blocked ${escapeHtml(n.blocked_alias || n.blocked_gmid)}</div><div class="tiny">${escapeHtml(fmt(n.created_at))}</div></div>`).join('') || '<div class="tiny muted">No block relationships.</div>';
-      $('auditList').innerHTML=(data.audit||[]).map(n=>`<div class="item"><div>${escapeHtml(n.action)}</div><div class="tiny">${escapeHtml(fmt(n.created_at))} · ${escapeHtml(n.admin_username)}</div></div>`).join('') || '<div class="tiny muted">No audit events yet.</div>';
-    }
-    $('saveBtn').onclick=async()=>{ if(!selected) return showNotice('editorNotice','Select a member first.',true); try{ await api(`/api/admin/members/${selected.id}/update`,{method:'POST',body:JSON.stringify({alias_name:$('fAlias').value.trim(),username:$('fUsername').value.trim(),display_name:$('fDisplay').value.trim(),email:$('fEmail').value.trim(),status:$('fStatus').value,must_change_password:$('fMust').value==='true'})}); showNotice('editorNotice','Member updated.'); await load(); await selectMember(selected.id);}catch(err){showNotice('editorNotice',err.message,true);} };
-    $('resetBtn').onclick=async()=>{ if(!selected) return showNotice('pwNotice','Select a member first.',true); try{ const data=await api(`/api/admin/members/${selected.id}/reset-password`,{method:'POST',body:JSON.stringify({new_password:$('pwInput').value.trim(),auto_generate:!$('pwInput').value.trim(),must_change_password:false})}); showNotice('pwNotice',`Temporary password: ${data.temporary_password}`); $('pwInput').value=''; await load(); await selectMember(selected.id);}catch(err){showNotice('pwNotice',err.message,true);} };
-    $('forceBtn').onclick=async()=>{ if(!selected) return showNotice('pwNotice','Select a member first.',true); try{ const data=await api(`/api/admin/members/${selected.id}/reset-password`,{method:'POST',body:JSON.stringify({new_password:$('pwInput').value.trim(),auto_generate:!$('pwInput').value.trim(),must_change_password:true})}); showNotice('pwNotice',`Password reset and member flagged to change at next login. Temp password: ${data.temporary_password}`); $('pwInput').value=''; await load(); await selectMember(selected.id);}catch(err){showNotice('pwNotice',err.message,true);} };
-    $('logoutAllBtn').onclick=async()=>{ if(!selected) return showNotice('editorNotice','Select a member first.',true); try{ await api(`/api/admin/members/${selected.id}/logout-all`,{method:'POST'}); showNotice('editorNotice','All member sessions revoked.'); await load(); await selectMember(selected.id);}catch(err){showNotice('editorNotice',err.message,true);} };
-    $('unlockBtn').onclick=async()=>{ if(!selected) return showNotice('editorNotice','Select a member first.',true); try{ await api(`/api/admin/members/${selected.id}/unlock`,{method:'POST'}); showNotice('editorNotice','Account unlocked.'); await load(); await selectMember(selected.id);}catch(err){showNotice('editorNotice',err.message,true);} };
-    $('noteBtn').onclick=async()=>{ if(!selected) return showNotice('noteNotice','Select a member first.',true); try{ await api(`/api/admin/members/${selected.id}/notes`,{method:'POST',body:JSON.stringify({note:$('noteInput').value.trim()})}); $('noteInput').value=''; showNotice('noteNotice','Note added.'); await selectMember(selected.id); await load();}catch(err){showNotice('noteNotice',err.message,true);} };
-    $('reloadBtn').onclick=()=>load();
-    $('logoutBtn').onclick=async()=>{ try{ await api('/api/admin/logout',{method:'POST'}); }catch{} location.href='/admin-login'; };
-    $('search').addEventListener('input', render);
-    load().catch(err=>{ $('meta').textContent=err.message; });
+    async function load(){ const data=await api('/api/admin/members'); allItems=data.items||[]; $('mTotal').textContent=allItems.length; $('mSystem').textContent=allItems.filter(x=>x.is_system).length; $('mCommunity').textContent=allItems.filter(x=>!x.is_system).length; render(); }
+    $('search').addEventListener('input', render); $('logoutBtn').onclick=async()=>{ await api('/api/admin/logout',{method:'POST'}); location.href='/admin-login'; };
+    load().catch(err=>{ $('meta').textContent=err.message; $('empty').style.display='block'; $('empty').textContent=err.message; });
   </script>
 </body>
 </html>
