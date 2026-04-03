@@ -636,10 +636,19 @@ def init_schema():
               message TEXT NOT NULL,
               created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            CREATE TABLE IF NOT EXISTS member_blocks (
+              id BIGSERIAL PRIMARY KEY,
+              blocker_gmid TEXT NOT NULL,
+              blocked_gmid TEXT NOT NULL,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              UNIQUE(blocker_gmid, blocked_gmid)
+            );
             """)
             cur.execute("ALTER TABLE members ADD COLUMN IF NOT EXISTS alias_name TEXT")
             cur.execute("ALTER TABLE member_documents ADD COLUMN IF NOT EXISTS source_type TEXT")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_members_alias_name_unique ON members(alias_name) WHERE alias_name IS NOT NULL")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocker ON member_blocks(blocker_gmid)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocked ON member_blocks(blocked_gmid)")
             cur.execute("UPDATE member_documents SET source_type=COALESCE(source_type, content_type, 'upload') WHERE source_type IS NULL")
             cur.execute("SELECT COUNT(*) FROM members")
             seed_demo_members = (cur.fetchone()[0] == 0)
@@ -762,6 +771,19 @@ CANONICAL_VISIBLE_MEMBER_SQL = "COALESCE(m.status, 'active') <> 'ghost'"
 @app.on_event("startup")
 def startup(): init_schema()
 
+def ensure_member_blocks_table(conn):
+    with conn.cursor() as cur:
+        cur.execute("""CREATE TABLE IF NOT EXISTS member_blocks (
+                          id BIGSERIAL PRIMARY KEY,
+                          blocker_gmid TEXT NOT NULL,
+                          blocked_gmid TEXT NOT NULL,
+                          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                          UNIQUE(blocker_gmid, blocked_gmid)
+                       );""")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocker ON member_blocks(blocker_gmid)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocked ON member_blocks(blocked_gmid)")
+    conn.commit()
+
 def ensure_canonical_member_rows(conn):
     with conn.cursor() as cur:
         # Meridian no longer holds invited members in a conditional pending state.
@@ -781,28 +803,38 @@ def ensure_canonical_member_rows(conn):
 def get_blocked_gmids(conn, member_gmid: str) -> set[str]:
     if not member_gmid:
         return set()
-    with conn.cursor() as cur:
-        cur.execute("""SELECT blocker_gmid, blocked_gmid
-                       FROM member_blocks
-                       WHERE blocker_gmid=%s OR blocked_gmid=%s""", (member_gmid, member_gmid))
-        blocked = set()
-        for blocker_gmid, blocked_gmid in cur.fetchall():
-            if blocker_gmid == member_gmid:
-                blocked.add(blocked_gmid)
-            elif blocked_gmid == member_gmid:
-                blocked.add(blocker_gmid)
-        return blocked
+    try:
+        ensure_member_blocks_table(conn)
+        with conn.cursor() as cur:
+            cur.execute("""SELECT blocker_gmid, blocked_gmid
+                           FROM member_blocks
+                           WHERE blocker_gmid=%s OR blocked_gmid=%s""", (member_gmid, member_gmid))
+            blocked = set()
+            for blocker_gmid, blocked_gmid in cur.fetchall():
+                if blocker_gmid == member_gmid:
+                    blocked.add(blocked_gmid)
+                elif blocked_gmid == member_gmid:
+                    blocked.add(blocker_gmid)
+            return blocked
+    except Exception:
+        conn.rollback()
+        return set()
 
 def is_blocked_pair(conn, member_a: str, member_b: str) -> bool:
     if not member_a or not member_b or member_a == member_b:
         return False
-    with conn.cursor() as cur:
-        cur.execute("""SELECT 1
-                       FROM member_blocks
-                       WHERE (blocker_gmid=%s AND blocked_gmid=%s)
-                          OR (blocker_gmid=%s AND blocked_gmid=%s)
-                       LIMIT 1""", (member_a, member_b, member_b, member_a))
-        return cur.fetchone() is not None
+    try:
+        ensure_member_blocks_table(conn)
+        with conn.cursor() as cur:
+            cur.execute("""SELECT 1
+                           FROM member_blocks
+                           WHERE (blocker_gmid=%s AND blocked_gmid=%s)
+                              OR (blocker_gmid=%s AND blocked_gmid=%s)
+                           LIMIT 1""", (member_a, member_b, member_b, member_a))
+            return cur.fetchone() is not None
+    except Exception:
+        conn.rollback()
+        return False
 
 def fetch_profiles(limit: int = 250, exclude_gmids=None):
     conn = get_conn()
@@ -1264,13 +1296,17 @@ def api_blocks(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     conn = get_conn()
     try:
+        ensure_member_blocks_table(conn)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT b.blocked_gmid AS gmid, m.alias_name, b.created_at
+            cur.execute("""SELECT b.blocked_gmid AS gmid, COALESCE(m.alias_name, b.blocked_gmid) AS alias_name, b.created_at
                            FROM member_blocks b
                            LEFT JOIN members m ON m.gmid=b.blocked_gmid
                            WHERE b.blocker_gmid=%s
                            ORDER BY b.created_at DESC""", (member["gmid"],))
             return JSONResponse(content=jsonable_encoder({"ok": True, "items": cur.fetchall()}))
+    except Exception:
+        conn.rollback()
+        return JSONResponse(content=jsonable_encoder({"ok": True, "items": []}))
     finally:
         put_conn(conn)
 
@@ -1285,6 +1321,7 @@ def api_block_member(blocked_gmid: str, request: Request):
         raise HTTPException(status_code=400, detail="Invalid block target")
     conn = get_conn()
     try:
+        ensure_member_blocks_table(conn)
         with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT gmid, alias_name, status FROM members WHERE gmid=%s", (blocked_gmid,))
             target = cur.fetchone()
@@ -1306,6 +1343,7 @@ def api_unblock_member(blocked_gmid: str, request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     conn = get_conn()
     try:
+        ensure_member_blocks_table(conn)
         with conn, conn.cursor() as cur:
             cur.execute("DELETE FROM member_blocks WHERE blocker_gmid=%s AND blocked_gmid=%s", (member["gmid"], blocked_gmid))
             deleted = cur.rowcount
