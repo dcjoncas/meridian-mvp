@@ -1827,12 +1827,18 @@ async def api_complete_invitation(token: str, request: Request):
             cur.execute("INSERT INTO members (gmid, display_name, email, alias_name, is_system, status) VALUES (%s,%s,%s,%s,FALSE,'active') RETURNING id", (gmid, display_name, email, canonical_alias(cur, gmid)))
             member_id = cur.fetchone()["id"]
             profile = {"domains":domains,"roles":roles,"experience_years":experience_years,"networks":networks,"assets":assets,"values":values,"attributes":attributes}
-            username = unique_username(cur, username or email.split("@")[0])
+            requested_username = slugify_username(username or email.split("@")[0])
+            if username:
+                final_username = unique_username(cur, username)
+                if final_username != requested_username:
+                    raise HTTPException(status_code=409, detail=f"Username '{requested_username}' is already taken. Choose another Meridian username.")
+            else:
+                final_username = unique_username(cur, requested_username)
             password = password or f"Meridian-{gmid[:8]}"
             cur.execute("INSERT INTO member_profiles (member_id, domains_json, roles_json, experience_years, networks_json, assets_json, values_json, attributes_json, strength_score) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", (member_id, Json(domains), Json(roles), experience_years, Json(networks), Json(assets), Json(values), Json(attributes), profile_strength_score(profile)))
             cur.execute("UPDATE member_invitations SET invitation_status='accepted', accepted_at=NOW() WHERE id=%s", (inv["id"],))
-            cur.execute("INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)", (member_id, username, hash_password(password), False))
-        return JSONResponse(content=jsonable_encoder({"ok": True, "gmid": gmid, "status": "active", "username": username}))
+            cur.execute("INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)", (member_id, final_username, hash_password(password), False))
+        return JSONResponse(content=jsonable_encoder({"ok": True, "gmid": gmid, "status": "active", "username": final_username}))
     finally: put_conn(conn)
 
 @app.get("/api/members/discover")

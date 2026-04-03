@@ -405,8 +405,11 @@
     function renderTrustIndicator(){
       if(!currentItem || currentItem.status !== 'accepted') return '';
       const nda = (currentChatMeta && currentChatMeta.nda) || {};
-      if(!nda.fully_signed) return '';
-      return `<div class="trust-indicator"><div class="trust-row"><div class="trust-badge">🔒 Private Channel</div><button class="trust-link" type="button" onclick="openPrivateOffRecord()">Open Non-Persistent Private Room</button></div><div class="trust-copy">Both parties have acknowledged Meridian confidentiality for this connection. Use the private room for an off-record conversation that is deleted when either party closes it.</div></div>`;
+      const badge = nda.fully_signed ? '🔒 Private Channel' : '🔒 Secure Channel';
+      const copy = nda.fully_signed
+        ? 'Both parties have acknowledged Meridian confidentiality for this connection. Use the private room for an off-record conversation that is deleted when either party closes it.'
+        : 'Move this accepted introduction into a temporary off-record room. Messages in that room are not saved and are deleted when either party closes it.';
+      return `<div class="trust-indicator"><div class="trust-row"><div class="trust-badge">${badge}</div><button class="trust-link" type="button" onclick="openPrivateOffRecord()">Open Non-Persistent Private Room</button></div><div class="trust-copy">${copy}</div></div>`;
     }
 
     async function openPrivateOffRecord(){
