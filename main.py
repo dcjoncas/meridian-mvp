@@ -279,8 +279,15 @@ def build_match_result(score: int, p: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def make_match_payload(query: str, requester: str, limit: int = 10) -> Dict[str, Any]:
+    blocked = set()
+    if requester:
+        conn = get_conn()
+        try:
+            blocked = get_blocked_gmids(conn, requester)
+        finally:
+            put_conn(conn)
     profiles = [
-        p for p in fetch_profiles(5000)
+        p for p in fetch_profiles(5000, exclude_gmids=blocked)
         if p["gmid"] != requester
         and p.get("status") in ("active",)
         and p.get("status") != "ghosted"
@@ -313,7 +320,7 @@ def make_match_payload(query: str, requester: str, limit: int = 10) -> Dict[str,
             "reasons": describe_match_reasons(query, p),
             "dimension_scores": match_dimension_scores(query, p),
         })
-    return {"ok": True, "query": query, "count": len(out), "results": out, "pool": "all_active_members_excluding_ghosts"}
+    return {"ok": True, "query": query, "count": len(out), "results": out, "pool": "all_active_members_excluding_ghosts_and_blocks"}
 
 
 def ai_shortlist_context(query: str, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -434,19 +441,74 @@ def generate_ai_match_summary(query: str, results: List[Dict[str, Any]]) -> Dict
 def deterministic_ai_chat(query: str, shortlist: List[Dict[str, Any]], question: str) -> Dict[str, Any]:
     if not shortlist:
         return {"answer": "Run a match search first so Meridian can narrow the shortlist before answering follow-up questions.", "suggested_focus": []}
-    q = question.lower()
-    ranked = shortlist
-    if "discreet" in q or "discretion" in q:
-        ranked = sorted(shortlist, key=lambda x: any("discretion" in r.lower() or "warm path" in r.lower() for r in x.get("reasons", [])), reverse=True)
-    elif "network" in q or "warm" in q or "intro" in q:
-        ranked = sorted(shortlist, key=lambda x: len(x.get("networks") or []), reverse=True)
-    elif "operator" in q or "operat" in q:
-        ranked = sorted(shortlist, key=lambda x: len([r for r in x.get("roles") or [] if any(tok in r.lower() for tok in ["coo","director","lead","operations","program"]) ]), reverse=True)
-    best = ranked[0]
-    answer = f"Based on the current shortlist, {best['alias']} looks strongest for this follow-up because of {', '.join((best.get('roles') or ['profile fit'])[:2])}, domain coverage in {', '.join((best.get('domains') or ['relevant areas'])[:3])}, and signals such as {' '.join((best.get('reasons') or [])[:2])}."
-    suggested_focus = [x['alias'] for x in ranked[:3]]
-    return {"answer": answer, "suggested_focus": suggested_focus, "source": "deterministic_fallback"}
 
+    q = (question or "").strip().lower()
+    suggested_focus = [x['alias'] for x in shortlist[:3]]
+    if not q:
+        return {
+            "answer": "Ask Meridian AI to compare the shortlist by operator depth, investor reach, discretion, network warmth, or domain fit.",
+            "suggested_focus": suggested_focus,
+            "source": "deterministic_fallback"
+        }
+
+    if re.search(r"\bhow old\b|\bage\b", q):
+        years = [f"{p['alias']} ({int(p.get('experience_years') or 0)} years experience)" for p in shortlist[:3]]
+        return {
+            "answer": "Meridian does not infer exact ages from the shortlist. It stays grounded in profile evidence such as years of experience. Top examples here are " + ", ".join(years) + ".",
+            "suggested_focus": suggested_focus,
+            "source": "deterministic_fallback"
+        }
+
+    if re.fullmatch(r"(?:what is\s+)?[-+*/(). 0-9]+[?!. ]*", q):
+        expr = re.sub(r"[^0-9+\-*/(). ]", "", q).strip()
+        result = None
+        if expr:
+            try:
+                result = eval(expr, {"__builtins__": {}}, {})
+            except Exception:
+                result = None
+        if result is not None:
+            return {
+                "answer": f"That question is outside shortlist narrowing, but the result is {result}. For Meridian, ask which profile is strongest for operator depth, investor reach, board access, or discretion.",
+                "suggested_focus": suggested_focus,
+                "source": "deterministic_fallback"
+            }
+        return {
+            "answer": "That question is outside shortlist narrowing. Ask Meridian AI to compare the candidates by fit, trust, domain, or warm-path potential.",
+            "suggested_focus": suggested_focus,
+            "source": "deterministic_fallback"
+        }
+
+    shortlist_terms = set(tokenize(query))
+    for person in shortlist[:5]:
+        shortlist_terms.update(tokenize(person.get("alias") or ""))
+        shortlist_terms.update(tokenize(" ".join(person.get("roles") or [])))
+        shortlist_terms.update(tokenize(" ".join(person.get("domains") or [])))
+        shortlist_terms.update(tokenize(" ".join(person.get("networks") or [])))
+
+    q_tokens = set(tokenize(q))
+    if q_tokens and not (q_tokens & shortlist_terms):
+        return {
+            "answer": "That question does not appear to narrow the current shortlist yet. Ask about investor reach, operator depth, discretion, domain overlap, board access, or which profile is the safest introduction path.",
+            "suggested_focus": suggested_focus,
+            "source": "deterministic_fallback"
+        }
+
+    ranked = shortlist
+    if "discreet" in q or "discretion" in q or "confidential" in q:
+        ranked = sorted(shortlist, key=lambda x: sum(1 for r in x.get("reasons", []) if any(k in r.lower() for k in ["warm path", "network overlap", "value signal"])), reverse=True)
+    elif "network" in q or "warm" in q or "intro" in q or "relationship" in q:
+        ranked = sorted(shortlist, key=lambda x: len(x.get("networks") or []), reverse=True)
+    elif "operator" in q or "operat" in q or "execution" in q:
+        ranked = sorted(shortlist, key=lambda x: len([r for r in x.get("roles") or [] if any(tok in r.lower() for tok in ["coo","director","lead","operations","program","manufacturing","procurement","supply"])]), reverse=True)
+    elif "investor" in q or "private equity" in q or "capital" in q or "board" in q:
+        ranked = sorted(shortlist, key=lambda x: len([n for n in x.get("networks") or [] if any(tok in n.lower() for tok in ["investor","lp","board","pe","operating"])]), reverse=True)
+    elif "domain" in q or "industry" in q or "sector" in q:
+        ranked = sorted(shortlist, key=lambda x: len(x.get("domains") or []), reverse=True)
+
+    best = ranked[0]
+    answer = f"Based on this follow-up, {best['alias']} looks strongest because of {', '.join((best.get('roles') or ['profile fit'])[:2])}, domain coverage in {', '.join((best.get('domains') or ['relevant areas'])[:3])}, and signals such as {' '.join((best.get('reasons') or [])[:2])}."
+    return {"answer": answer, "suggested_focus": [x['alias'] for x in ranked[:3]], "source": "deterministic_fallback"}
 
 def generate_ai_match_chat(query: str, results: List[Dict[str, Any]], messages: List[Dict[str, str]]) -> Dict[str, Any]:
     shortlist = ai_shortlist_context(query, results)
@@ -579,11 +641,13 @@ def init_schema():
             cur.execute("ALTER TABLE member_documents ADD COLUMN IF NOT EXISTS source_type TEXT")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_members_alias_name_unique ON members(alias_name) WHERE alias_name IS NOT NULL")
             cur.execute("UPDATE member_documents SET source_type=COALESCE(source_type, content_type, 'upload') WHERE source_type IS NULL")
+            cur.execute("SELECT COUNT(*) FROM members")
+            seed_demo_members = (cur.fetchone()[0] == 0)
             cur.execute("SELECT id, gmid FROM members WHERE display_name=%s", ("Mike S",))
             mike_row = cur.fetchone()
             if not mike_row:
                 gmid = make_gmid("Mike S|PRINCIPAL")
-                cur.execute("INSERT INTO members (gmid, display_name, email, alias_name, is_system, status) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id, gmid", (gmid, "Mike S", "mike@meridian.local", alias_from_gmid(gmid), False, "active"))
+                cur.execute("INSERT INTO members (gmid, display_name, email, alias_name, is_system, status) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id, gmid", (gmid, "Mike S", "mike@meridian.local", canonical_alias(cur, gmid), False, "active"))
                 mike_row = cur.fetchone()
                 member_id = mike_row[0]
                 profile = {"domains":["Private Equity","Financial Services","Executive Search","Strategic Introductions"],"roles":["Principal","Managing Partner"],"experience_years":18,"networks":["Global LP network","C-suite operator channel","Board-level advisory"],"assets":["20+ years executing discreet executive mandates","Deep LP and sovereign fund relationships","Multi-sector board and operating network","Cross-border deal origination track record","Non-attributable introduction protocol","Known for zero-ego, outcome-first execution"],"values":["Discretion","Reciprocity","Outcome rigor"],"attributes":{"engagement_type":"advisory","confidentiality":"non-attribution"}}
@@ -601,15 +665,14 @@ def init_schema():
                 cur.execute("UPDATE member_auth SET username=%s, password_hash=%s, must_change_password=FALSE WHERE member_id=%s", ("mike", hash_password("red123"), member_id))
             else:
                 cur.execute("INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)", (member_id, "mike", hash_password("red123"), False))
-            cur.execute("SELECT COUNT(*) FROM members WHERE is_system = TRUE")
-            if cur.fetchone()[0] == 0:
+            if seed_demo_members:
                 first = ["Avery","Jordan","Riley","Casey","Morgan","Taylor","Quinn","Hayden","Parker","Rowan","Blake","Cameron","Drew","Emerson","Finley","Harper","Kai","Logan","Micah","Noel"]
                 last  = ["Stone","Reed","Carter","Hayes","Brooks","Wells","Foster","Shaw","Bennett","Cole","Sullivan","Pierce","Vaughn","Donovan","Holland","Walsh","Hayward","Monroe","Kendall","Navarro"]
                 for i in range(100):
                     rnd = random.Random(i + 77)
                     display = f"{first[i % len(first)]} {last[(i*3) % len(last)]} — EX-{i+1:03d}"
                     gmid = make_gmid("SYSTEM|" + display)
-                    cur.execute("INSERT INTO members (gmid, display_name, alias_name, is_system, status) VALUES (%s,%s,%s,%s,%s) RETURNING id", (gmid, display, alias_from_gmid(gmid), True, "active"))
+                    cur.execute("INSERT INTO members (gmid, display_name, alias_name, is_system, status) VALUES (%s,%s,%s,%s,%s) RETURNING id", (gmid, display, canonical_alias(cur, gmid), True, "active"))
                     member_id = cur.fetchone()[0]
                     domains = rnd.sample(DOMAIN_KEYWORDS[:24], k=rnd.randint(2, 4))
                     roles = rnd.sample(ROLE_KEYWORDS[:15], k=rnd.randint(1, 2))
@@ -715,7 +778,33 @@ def ensure_canonical_member_rows(conn):
                        WHERE {CANONICAL_VISIBLE_MEMBER_SQL} AND p.member_id IS NULL""")
     conn.commit()
 
-def fetch_profiles(limit: int = 250):
+def get_blocked_gmids(conn, member_gmid: str) -> set[str]:
+    if not member_gmid:
+        return set()
+    with conn.cursor() as cur:
+        cur.execute("""SELECT blocker_gmid, blocked_gmid
+                       FROM member_blocks
+                       WHERE blocker_gmid=%s OR blocked_gmid=%s""", (member_gmid, member_gmid))
+        blocked = set()
+        for blocker_gmid, blocked_gmid in cur.fetchall():
+            if blocker_gmid == member_gmid:
+                blocked.add(blocked_gmid)
+            elif blocked_gmid == member_gmid:
+                blocked.add(blocker_gmid)
+        return blocked
+
+def is_blocked_pair(conn, member_a: str, member_b: str) -> bool:
+    if not member_a or not member_b or member_a == member_b:
+        return False
+    with conn.cursor() as cur:
+        cur.execute("""SELECT 1
+                       FROM member_blocks
+                       WHERE (blocker_gmid=%s AND blocked_gmid=%s)
+                          OR (blocker_gmid=%s AND blocked_gmid=%s)
+                       LIMIT 1""", (member_a, member_b, member_b, member_a))
+        return cur.fetchone() is not None
+
+def fetch_profiles(limit: int = 250, exclude_gmids=None):
     conn = get_conn()
     try:
         ensure_canonical_member_rows(conn)
@@ -739,7 +828,11 @@ def fetch_profiles(limit: int = 250):
                              AND COALESCE(m.alias_name, '') <> ''
                            ORDER BY m.is_system DESC, COALESCE(p.strength_score,0) DESC, COALESCE(p.experience_years,0) DESC, m.created_at DESC, m.id ASC
                            LIMIT %s""", (limit,))
-            return cur.fetchall()
+            rows = cur.fetchall()
+            excluded = set(exclude_gmids or [])
+            if excluded:
+                rows = [row for row in rows if row.get('gmid') not in excluded]
+            return rows
     finally:
         put_conn(conn)
 
@@ -1099,7 +1192,7 @@ async def api_profile_create(request: Request):
             existing = cur.fetchone()
             if existing:
                 return JSONResponse(content=jsonable_encoder({"ok": True, "gmid": existing["gmid"], "created": False}))
-            cur.execute("INSERT INTO members (gmid, display_name, email, alias_name, is_system, status) VALUES (%s,%s,%s,%s,FALSE,'active') RETURNING id", (gmid, display_name, email, alias_from_gmid(gmid)))
+            cur.execute("INSERT INTO members (gmid, display_name, email, alias_name, is_system, status) VALUES (%s,%s,%s,%s,FALSE,'active') RETURNING id", (gmid, display_name, email, canonical_alias(cur, gmid)))
             member_id = cur.fetchone()["id"]
             profile = {"domains":domains,"roles":roles,"experience_years":experience_years,"networks":networks,"assets":assets,"values":values,"attributes":{}}
             username = unique_username(cur, data.get("username") or (email.split("@")[0] if email else display_name))
@@ -1158,16 +1251,86 @@ async def api_ping(request: Request):
     conn = get_conn()
     try:
         with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if is_blocked_pair(conn, requester, target):
+                raise HTTPException(status_code=403, detail="This member connection is blocked")
             cur.execute("INSERT INTO pings (requester_gmid, target_gmid, request_text, score, status) VALUES (%s,%s,%s,%s,'pending') RETURNING id", (requester, target, txt, score))
             return JSONResponse(content=jsonable_encoder({"ok": True, "ping_id": cur.fetchone()["id"]}))
     finally: put_conn(conn)
+
+@app.get("/api/blocks")
+def api_blocks(request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    conn = get_conn()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""SELECT b.blocked_gmid AS gmid, m.alias_name, b.created_at
+                           FROM member_blocks b
+                           LEFT JOIN members m ON m.gmid=b.blocked_gmid
+                           WHERE b.blocker_gmid=%s
+                           ORDER BY b.created_at DESC""", (member["gmid"],))
+            return JSONResponse(content=jsonable_encoder({"ok": True, "items": cur.fetchall()}))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/blocks/{blocked_gmid}")
+def api_block_member(blocked_gmid: str, request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    blocker_gmid = member["gmid"]
+    blocked_gmid = (blocked_gmid or "").strip()
+    if not blocked_gmid or blocked_gmid == blocker_gmid:
+        raise HTTPException(status_code=400, detail="Invalid block target")
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT gmid, alias_name, status FROM members WHERE gmid=%s", (blocked_gmid,))
+            target = cur.fetchone()
+            if not target or target["status"] != "active":
+                raise HTTPException(status_code=404, detail="Member not found")
+            cur.execute("""INSERT INTO member_blocks (blocker_gmid, blocked_gmid)
+                           VALUES (%s,%s)
+                           ON CONFLICT (blocker_gmid, blocked_gmid) DO NOTHING""", (blocker_gmid, blocked_gmid))
+            cur.execute("DELETE FROM pings WHERE (requester_gmid=%s AND target_gmid=%s) OR (requester_gmid=%s AND target_gmid=%s)",
+                        (blocker_gmid, blocked_gmid, blocked_gmid, blocker_gmid))
+            return JSONResponse(content=jsonable_encoder({"ok": True, "blocked_gmid": blocked_gmid, "alias_name": target.get("alias_name") or ""}))
+    finally:
+        put_conn(conn)
+
+@app.delete("/api/blocks/{blocked_gmid}")
+def api_unblock_member(blocked_gmid: str, request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    conn = get_conn()
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM member_blocks WHERE blocker_gmid=%s AND blocked_gmid=%s", (member["gmid"], blocked_gmid))
+            deleted = cur.rowcount
+            return JSONResponse(content=jsonable_encoder({"ok": True, "removed": bool(deleted), "blocked_gmid": blocked_gmid}))
+    finally:
+        put_conn(conn)
 
 @app.get("/api/inbox/{gmid}")
 def api_inbox(gmid: str, limit: int = 200):
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT p.*, req.display_name AS requester_name, tgt.display_name AS target_name FROM pings p LEFT JOIN members req ON req.gmid=p.requester_gmid LEFT JOIN members tgt ON tgt.gmid=p.target_gmid WHERE p.target_gmid=%s ORDER BY p.created_at DESC LIMIT %s""", (gmid, limit))
+            cur.execute("""SELECT p.*,
+                                  req.alias_name AS requester_alias,
+                                  tgt.alias_name AS target_alias
+                           FROM pings p
+                           LEFT JOIN members req ON req.gmid=p.requester_gmid
+                           LEFT JOIN members tgt ON tgt.gmid=p.target_gmid
+                           WHERE p.target_gmid=%s
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM member_blocks b
+                                 WHERE (b.blocker_gmid=%s AND b.blocked_gmid IN (p.requester_gmid, p.target_gmid))
+                                    OR (b.blocked_gmid=%s AND b.blocker_gmid IN (p.requester_gmid, p.target_gmid))
+                             )
+                           ORDER BY p.created_at DESC LIMIT %s""", (gmid, gmid, gmid, limit))
             return JSONResponse(content=jsonable_encoder({"ok": True, "items": cur.fetchall()}))
     finally: put_conn(conn)
 
@@ -1176,7 +1339,19 @@ def api_outbox(gmid: str, limit: int = 200):
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT p.*, req.display_name AS requester_name, tgt.display_name AS target_name FROM pings p LEFT JOIN members req ON req.gmid=p.requester_gmid LEFT JOIN members tgt ON tgt.gmid=p.target_gmid WHERE p.requester_gmid=%s ORDER BY p.created_at DESC LIMIT %s""", (gmid, limit))
+            cur.execute("""SELECT p.*,
+                                  req.alias_name AS requester_alias,
+                                  tgt.alias_name AS target_alias
+                           FROM pings p
+                           LEFT JOIN members req ON req.gmid=p.requester_gmid
+                           LEFT JOIN members tgt ON tgt.gmid=p.target_gmid
+                           WHERE p.requester_gmid=%s
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM member_blocks b
+                                 WHERE (b.blocker_gmid=%s AND b.blocked_gmid IN (p.requester_gmid, p.target_gmid))
+                                    OR (b.blocked_gmid=%s AND b.blocker_gmid IN (p.requester_gmid, p.target_gmid))
+                             )
+                           ORDER BY p.created_at DESC LIMIT %s""", (gmid, gmid, gmid, limit))
             return JSONResponse(content=jsonable_encoder({"ok": True, "items": cur.fetchall()}))
     finally: put_conn(conn)
 
@@ -1224,25 +1399,49 @@ def api_network(gmid: str):
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT p.*, req.display_name AS requester_name, tgt.display_name AS target_name FROM pings p LEFT JOIN members req ON req.gmid=p.requester_gmid LEFT JOIN members tgt ON tgt.gmid=p.target_gmid WHERE p.status='accepted' AND (p.requester_gmid=%s OR p.target_gmid=%s) ORDER BY COALESCE(p.responded_at, p.created_at) DESC, p.id DESC""", (gmid, gmid))
+            cur.execute("""SELECT p.id, p.requester_gmid, p.target_gmid, p.created_at, p.responded_at,
+                                  req.alias_name AS requester_alias,
+                                  tgt.alias_name AS target_alias
+                           FROM pings p
+                           LEFT JOIN members req ON req.gmid=p.requester_gmid
+                           LEFT JOIN members tgt ON tgt.gmid=p.target_gmid
+                           WHERE p.status='accepted'
+                             AND (p.requester_gmid=%s OR p.target_gmid=%s)
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM member_blocks b
+                                 WHERE (b.blocker_gmid=%s AND b.blocked_gmid IN (p.requester_gmid, p.target_gmid))
+                                    OR (b.blocked_gmid=%s AND b.blocker_gmid IN (p.requester_gmid, p.target_gmid))
+                             )
+                           ORDER BY COALESCE(p.responded_at, p.created_at) DESC, p.id DESC""", (gmid, gmid, gmid, gmid))
             rows = cur.fetchall()
-            nodes, edges, seen = [], [], set()
+            nodes, edges, seen, seen_others = [], [], set(), set()
             def add_node(node_gmid, label):
                 if node_gmid not in seen:
-                    seen.add(node_gmid); nodes.append({"gmid": node_gmid, "label": label})
+                    seen.add(node_gmid)
+                    nodes.append({"gmid": node_gmid, "label": label})
             add_node(gmid, "Me")
             for r in rows:
-                add_node(r["requester_gmid"], r["requester_name"] or r["requester_gmid"])
-                add_node(r["target_gmid"], r["target_name"] or r["target_gmid"])
                 other = r["target_gmid"] if r["requester_gmid"] == gmid else r["requester_gmid"]
-                other_name = r["target_name"] if r["requester_gmid"] == gmid else r["requester_name"]
-                edges.append({"ping_id": r["id"], "other_gmid": other, "other_name": other_name, "created_at": r["created_at"], "responded_at": r["responded_at"]})
+                other_alias = (r["target_alias"] if r["requester_gmid"] == gmid else r["requester_alias"]) or other
+                add_node(other, other_alias)
+                if other in seen_others:
+                    continue
+                seen_others.add(other)
+                edges.append({"ping_id": r["id"], "other_gmid": other, "other_name": other_alias, "created_at": r["created_at"], "responded_at": r["responded_at"]})
             return JSONResponse(content=jsonable_encoder({"ok": True, "center_gmid": gmid, "nodes": nodes, "edges": edges}))
     finally: put_conn(conn)
 
 @app.get("/api/rankings")
-def api_rankings(limit: int = 500):
-    profiles = fetch_profiles(5000)
+def api_rankings(request: Request, limit: int = 500):
+    member = get_current_member(request)
+    blocked = set()
+    if member:
+        conn_for_blocks = get_conn()
+        try:
+            blocked = get_blocked_gmids(conn_for_blocks, member["gmid"])
+        finally:
+            put_conn(conn_for_blocks)
+    profiles = fetch_profiles(5000, exclude_gmids=blocked)
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -1310,7 +1509,7 @@ async def api_complete_invitation(token: str, request: Request):
             cur.execute("SELECT id FROM members WHERE lower(email)=lower(%s)", (email,))
             if cur.fetchone(): raise HTTPException(status_code=400, detail="That email already belongs to an existing Meridian member.")
             gmid = make_gmid(display_name + "|" + email)
-            cur.execute("INSERT INTO members (gmid, display_name, email, alias_name, is_system, status) VALUES (%s,%s,%s,%s,FALSE,'active') RETURNING id", (gmid, display_name, email, alias_from_gmid(gmid)))
+            cur.execute("INSERT INTO members (gmid, display_name, email, alias_name, is_system, status) VALUES (%s,%s,%s,%s,FALSE,'active') RETURNING id", (gmid, display_name, email, canonical_alias(cur, gmid)))
             member_id = cur.fetchone()["id"]
             profile = {"domains":domains,"roles":roles,"experience_years":experience_years,"networks":networks,"assets":assets,"values":values,"attributes":attributes}
             username = unique_username(cur, username or email.split("@")[0])
@@ -1322,8 +1521,16 @@ async def api_complete_invitation(token: str, request: Request):
     finally: put_conn(conn)
 
 @app.get("/api/members/discover")
-def api_member_discovery(limit: int = 120):
-    profiles = fetch_profiles(5000)
+def api_member_discovery(request: Request, limit: int = 120):
+    member = get_current_member(request)
+    blocked = set()
+    if member:
+        conn = get_conn()
+        try:
+            blocked = get_blocked_gmids(conn, member["gmid"])
+        finally:
+            put_conn(conn)
+    profiles = fetch_profiles(5000, exclude_gmids=blocked)
     items = []
     for p in profiles:
         if p.get("status") not in ("active",):
