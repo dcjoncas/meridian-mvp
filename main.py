@@ -1,5 +1,6 @@
 
-import os, io, re, html, hashlib, random, secrets, json
+import os, io, re, html, hashlib, random, secrets, json, smtplib, ssl
+from email.message import EmailMessage
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -85,6 +86,50 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, password_hash: str) -> bool:
     return hash_password(password) == (password_hash or "")
+
+def hash_reset_token(raw_token: str) -> str:
+    return hashlib.sha256(((raw_token or "") + "|MERIDIAN_RESET|" + SESSION_SECRET).encode("utf-8")).hexdigest()
+
+def password_is_valid(password: str) -> bool:
+    return len(password or "") >= 8
+
+def smtp_configured() -> bool:
+    return bool(os.getenv("SMTP_HOST") and os.getenv("SMTP_USERNAME") and os.getenv("SMTP_PASSWORD") and os.getenv("SMTP_FROM"))
+
+def local_reset_preview_enabled() -> bool:
+    return ("127.0.0.1" in APP_BASE_URL) or ("localhost" in APP_BASE_URL) or os.getenv("MERIDIAN_SHOW_RESET_LINKS", "").lower() in ("1", "true", "yes")
+
+def send_password_reset_email(to_email: str, reset_url: str, display_name: str | None = None):
+    host = os.getenv("SMTP_HOST")
+    username = os.getenv("SMTP_USERNAME")
+    password = os.getenv("SMTP_PASSWORD")
+    sender = os.getenv("SMTP_FROM")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    use_ssl = os.getenv("SMTP_SSL", "").lower() in ("1", "true", "yes")
+    if not (host and username and password and sender and to_email):
+        return False
+    msg = EmailMessage()
+    msg["Subject"] = "Meridian password reset"
+    msg["From"] = sender
+    msg["To"] = to_email
+    msg.set_content(f"Hello {display_name or 'Meridian member'},\n\nA password reset was requested for your Meridian account.\n\nReset your password here:\n{reset_url}\n\nThis link expires in 30 minutes and can only be used once. If you did not request this, you can ignore this message.\n")
+    if use_ssl:
+        with smtplib.SMTP_SSL(host, port, context=ssl.create_default_context()) as server:
+            server.login(username, password)
+            server.send_message(msg)
+    else:
+        with smtplib.SMTP(host, port) as server:
+            server.starttls(context=ssl.create_default_context())
+            server.login(username, password)
+            server.send_message(msg)
+    return True
+
+def log_admin_action(cur, admin_username: str | None, target_member_id: int | None, target_gmid: str | None, action: str, details: Dict[str, Any] | None = None):
+    cur.execute(
+        """INSERT INTO admin_audit_log (admin_username, target_member_id, target_gmid, action, details_json)
+               VALUES (%s,%s,%s,%s,%s)""",
+        (admin_username or ADMIN_USERNAME, target_member_id, target_gmid, action, Json(details or {}))
+    )
 
 def slugify_username(value: str) -> str:
     base = re.sub(r"[^a-z0-9]+", ".", (value or "").lower()).strip(".")
@@ -688,11 +733,44 @@ def init_schema():
               created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
               UNIQUE(blocker_gmid, blocked_gmid)
             );
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+              id BIGSERIAL PRIMARY KEY,
+              member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+              token_hash TEXT UNIQUE NOT NULL,
+              expires_at TIMESTAMPTZ NOT NULL,
+              used_at TIMESTAMPTZ,
+              requested_from TEXT,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS admin_notes (
+              id BIGSERIAL PRIMARY KEY,
+              target_member_id BIGINT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+              admin_username TEXT NOT NULL,
+              note TEXT NOT NULL,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS admin_audit_log (
+              id BIGSERIAL PRIMARY KEY,
+              admin_username TEXT NOT NULL,
+              target_member_id BIGINT REFERENCES members(id) ON DELETE SET NULL,
+              target_gmid TEXT,
+              action TEXT NOT NULL,
+              details_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
             """)
             cur.execute("ALTER TABLE members ADD COLUMN IF NOT EXISTS alias_name TEXT")
             cur.execute("ALTER TABLE member_documents ADD COLUMN IF NOT EXISTS source_type TEXT")
             cur.execute("ALTER TABLE pings ADD COLUMN IF NOT EXISTS recipient_seen_at TIMESTAMPTZ")
+            cur.execute("ALTER TABLE members ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
+            cur.execute("ALTER TABLE member_auth ADD COLUMN IF NOT EXISTS failed_login_count INT NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE member_auth ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ")
+            cur.execute("ALTER TABLE member_auth ADD COLUMN IF NOT EXISTS session_version INT NOT NULL DEFAULT 1")
+            cur.execute("ALTER TABLE member_auth ADD COLUMN IF NOT EXISTS password_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_members_alias_name_unique ON members(alias_name) WHERE alias_name IS NOT NULL")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_hash ON password_reset_tokens(token_hash)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_admin_notes_target_member ON admin_notes(target_member_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_admin_audit_target_member ON admin_audit_log(target_member_id)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocker ON member_blocks(blocker_gmid)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocked ON member_blocks(blocked_gmid)")
             cur.execute("UPDATE member_documents SET source_type=COALESCE(source_type, content_type, 'upload') WHERE source_type IS NULL")
@@ -927,19 +1005,19 @@ def canonical_visible_member_count() -> int:
         put_conn(conn)
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    if request.session.get("member_gmid"):
+def root(request: Request):
+    if get_current_member(request):
         return RedirectResponse(url="/me", status_code=302)
     return HTMLResponse(open(os.path.join(BASE_DIR, "ui.html"), "r", encoding="utf-8").read())
 
 @app.get("/member/{gmid}", response_class=HTMLResponse)
-def member(request: Request, gmid: str):
-    session_gmid = request.session.get("member_gmid")
-    if not session_gmid:
+def member_page(gmid: str, request: Request):
+    member = get_current_member(request)
+    if not member:
         return RedirectResponse(url="/", status_code=302)
-    if session_gmid != gmid:
-        return RedirectResponse(url=f"/member/{session_gmid}", status_code=302)
-    return HTMLResponse(open(os.path.join(BASE_DIR, "member.html"), "r", encoding="utf-8").read().replace("{{GMID}}", gmid))
+    if member["gmid"] != gmid:
+        return RedirectResponse(url=f"/member/{member['gmid']}", status_code=302)
+    return HTMLResponse(open(os.path.join(BASE_DIR, "member.html"), "r", encoding="utf-8").read())
 
 @app.get("/private-channel/{ping_id}", response_class=HTMLResponse)
 def private_channel_page(request: Request, ping_id: int):
@@ -971,21 +1049,20 @@ def rankings_page(): return HTMLResponse(open(os.path.join(BASE_DIR, "rankings.h
 def alias_page(): return HTMLResponse(open(os.path.join(BASE_DIR, "GMID.html"), "r", encoding="utf-8").read())
 
 @app.get("/profile/edit", response_class=HTMLResponse)
-def profile_edit_page(request: Request):
-    gmid = request.session.get("member_gmid")
-    if not gmid:
+def profile_editor(request: Request):
+    if not get_current_member(request):
         return RedirectResponse(url="/", status_code=302)
-    return HTMLResponse(open(os.path.join(BASE_DIR, "profile_editor.html"), "r", encoding="utf-8").read().replace("{{GMID}}", gmid))
+    return HTMLResponse(open(os.path.join(BASE_DIR, "profile_editor.html"), "r", encoding="utf-8").read())
 
 @app.get("/members", response_class=HTMLResponse)
 def members_page(request: Request):
-    if not request.session.get("member_gmid"):
+    if not get_current_member(request):
         return RedirectResponse(url="/", status_code=302)
     return HTMLResponse(open(os.path.join(BASE_DIR, "members.html"), "r", encoding="utf-8").read())
 
 @app.get("/invite-member", response_class=HTMLResponse)
 def invite_member_page(request: Request):
-    if not request.session.get("member_gmid"):
+    if not get_current_member(request):
         return RedirectResponse(url="/", status_code=302)
     return HTMLResponse(open(os.path.join(BASE_DIR, "invite_member.html"), "r", encoding="utf-8").read())
 
@@ -1002,6 +1079,14 @@ def admin_page(request: Request):
         return RedirectResponse(url="/admin-login", status_code=302)
     return HTMLResponse(open(os.path.join(BASE_DIR, "admin_members.html"), "r", encoding="utf-8").read())
 
+@app.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_page():
+    return HTMLResponse(open(os.path.join(BASE_DIR, "forgot_password.html"), "r", encoding="utf-8").read())
+
+@app.get("/reset-password", response_class=HTMLResponse)
+def reset_password_page():
+    return HTMLResponse(open(os.path.join(BASE_DIR, "reset_password.html"), "r", encoding="utf-8").read())
+
 
 def get_current_admin(request: Request) -> bool:
     return bool(request.session.get("is_admin"))
@@ -1009,14 +1094,27 @@ def get_current_admin(request: Request) -> bool:
 
 def get_current_member(request: Request):
     gmid = request.session.get("member_gmid")
+    auth_version = request.session.get("auth_version")
     if not gmid:
         return None
     conn = get_conn()
     try:
         ensure_canonical_member_rows(conn)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT gmid, display_name, email, status, is_system FROM members WHERE gmid=%s AND status IN ('active')", (gmid,))
-            return cur.fetchone()
+            cur.execute("""SELECT m.id, m.gmid, m.display_name, m.email, m.status, m.is_system, m.alias_name,
+                                  a.username, a.must_change_password, a.session_version
+                           FROM members m
+                           LEFT JOIN member_auth a ON a.member_id=m.id
+                           WHERE m.gmid=%s AND m.status IN ('active')""", (gmid,))
+            row = cur.fetchone()
+            if not row:
+                request.session.clear()
+                return None
+            if row.get("session_version") is not None:
+                if auth_version is None or int(auth_version) != int(row.get("session_version") or 0):
+                    request.session.clear()
+                    return None
+            return row
     finally:
         put_conn(conn)
 
@@ -1056,17 +1154,102 @@ async def api_auth_login(request: Request):
     conn = get_conn()
     try:
         with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT a.username, a.password_hash, a.must_change_password, m.gmid, m.display_name, m.email, m.status
+            cur.execute("""SELECT a.member_id, a.username, a.password_hash, a.must_change_password, a.failed_login_count,
+                                  a.locked_until, a.session_version,
+                                  m.gmid, m.display_name, m.email, m.status
                            FROM member_auth a
                            JOIN members m ON m.id = a.member_id
                            WHERE lower(a.username)=lower(%s)""", (username,))
             row = cur.fetchone()
+            now = datetime.now(timezone.utc)
+            if row and row.get("locked_until") and row["locked_until"] > now:
+                raise HTTPException(status_code=423, detail="Account temporarily locked. Please reset your password or try again later.")
             if not row or row["status"] not in ("active",) or not verify_password(password, row["password_hash"]):
+                if row:
+                    failed = int(row.get("failed_login_count") or 0) + 1
+                    locked_until = None
+                    if failed >= 5:
+                        locked_until = now + timedelta(minutes=15)
+                    cur.execute("UPDATE member_auth SET failed_login_count=%s, locked_until=%s WHERE member_id=%s", (failed, locked_until, row["member_id"]))
                 raise HTTPException(status_code=401, detail="Invalid credentials")
+            cur.execute("UPDATE member_auth SET last_login_at=NOW(), failed_login_count=0, locked_until=NULL WHERE member_id=%s", (row["member_id"],))
             request.session["member_gmid"] = row["gmid"]
             request.session["username"] = row["username"]
-            cur.execute("UPDATE member_auth SET last_login_at=NOW() WHERE username=%s", (row["username"],))
-            return JSONResponse(content=jsonable_encoder({"ok": True, "member": {"gmid": row["gmid"], "display_name": row["display_name"], "email": row["email"], "status": row["status"]}, "redirect_url": f"/member/{row['gmid']}", "must_change_password": row["must_change_password"]}))
+            request.session["auth_version"] = int(row.get("session_version") or 1)
+            return JSONResponse(content=jsonable_encoder({
+                "ok": True,
+                "member": {"gmid": row["gmid"], "display_name": row["display_name"], "email": row["email"], "status": row["status"]},
+                "redirect_url": f"/member/{row['gmid']}",
+                "must_change_password": row["must_change_password"]
+            }))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/auth/forgot-password")
+async def api_auth_forgot_password(request: Request):
+    data = await request.json()
+    identifier = (data.get("identifier") or "").strip()
+    preview_reset_url = None
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if identifier:
+                cur.execute("""SELECT m.id, m.gmid, m.display_name, m.email
+                               FROM members m
+                               LEFT JOIN member_auth a ON a.member_id=m.id
+                               WHERE m.status='active' AND (lower(coalesce(a.username,''))=lower(%s) OR lower(coalesce(m.email,''))=lower(%s))
+                               ORDER BY m.id ASC LIMIT 1""", (identifier, identifier))
+                row = cur.fetchone()
+                if row:
+                    token = secrets.token_urlsafe(32)
+                    token_hash = hash_reset_token(token)
+                    cur.execute("UPDATE password_reset_tokens SET used_at=NOW() WHERE member_id=%s AND used_at IS NULL", (row["id"],))
+                    cur.execute("INSERT INTO password_reset_tokens (member_id, token_hash, expires_at, requested_from) VALUES (%s,%s,NOW()+INTERVAL '30 minutes',%s)", (row["id"], token_hash, request.client.host if request.client else None))
+                    preview_reset_url = f"{APP_BASE_URL.rstrip('/')}/reset-password?token={token}"
+                    if row.get("email") and smtp_configured():
+                        try:
+                            send_password_reset_email(row["email"], preview_reset_url, row.get("display_name"))
+                        except Exception:
+                            pass
+                    elif not local_reset_preview_enabled():
+                        preview_reset_url = None
+        payload = {"ok": True, "message": "If the account exists, a reset link has been sent."}
+        if preview_reset_url:
+            payload["preview_reset_url"] = preview_reset_url
+        return JSONResponse(content=jsonable_encoder(payload))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/auth/reset-password")
+async def api_auth_reset_password(request: Request):
+    data = await request.json()
+    token = (data.get("token") or "").strip()
+    new_password = data.get("new_password") or ""
+    confirm_password = data.get("confirm_password") or ""
+    if not token:
+        raise HTTPException(status_code=400, detail="Reset token required")
+    if not password_is_valid(new_password):
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+    if new_password != confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""SELECT pr.id, pr.member_id, pr.expires_at, pr.used_at
+                           FROM password_reset_tokens pr
+                           WHERE pr.token_hash=%s
+                           LIMIT 1""", (hash_reset_token(token),))
+            row = cur.fetchone()
+            now = datetime.now(timezone.utc)
+            if not row or row.get("used_at") is not None or row.get("expires_at") is None or row["expires_at"] <= now:
+                raise HTTPException(status_code=400, detail="This reset link is invalid or has expired")
+            cur.execute("""UPDATE member_auth
+                           SET password_hash=%s, must_change_password=FALSE, failed_login_count=0, locked_until=NULL,
+                               session_version=COALESCE(session_version,1)+1, password_updated_at=NOW()
+                           WHERE member_id=%s""", (hash_password(new_password), row["member_id"]))
+            cur.execute("UPDATE password_reset_tokens SET used_at=NOW() WHERE id=%s", (row["id"],))
+            request.session.clear()
+            return JSONResponse(content={"ok": True, "redirect_url": "/"})
     finally:
         put_conn(conn)
 
@@ -1088,11 +1271,15 @@ async def api_auth_change_password(request: Request):
     conn = get_conn()
     try:
         with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT username, password_hash FROM member_auth a JOIN members m ON m.id=a.member_id WHERE m.gmid=%s", (member["gmid"],))
+            cur.execute("SELECT member_id, username, password_hash, session_version FROM member_auth a JOIN members m ON m.id=a.member_id WHERE m.gmid=%s", (member["gmid"],))
             row = cur.fetchone()
             if not row or not verify_password(current_password, row["password_hash"]):
                 raise HTTPException(status_code=401, detail="Current password is incorrect")
-            cur.execute("UPDATE member_auth SET password_hash=%s, must_change_password=FALSE WHERE username=%s", (hash_password(new_password), row["username"]))
+            cur.execute("""UPDATE member_auth
+                           SET password_hash=%s, must_change_password=FALSE, session_version=COALESCE(session_version,1)+1,
+                               password_updated_at=NOW()
+                           WHERE username=%s""", (hash_password(new_password), row["username"]))
+            request.session["auth_version"] = int(row.get("session_version") or 1) + 1
             return JSONResponse(content={"ok": True})
     finally:
         put_conn(conn)
@@ -1832,7 +2019,11 @@ def api_admin_members(request: Request, limit: int = 500):
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT m.id, m.gmid, m.alias_name, m.display_name, m.email, m.is_system, m.status, a.username, a.must_change_password, a.last_login_at, m.created_at
+            cur.execute("""SELECT m.id, m.gmid, m.alias_name, m.display_name, m.email, m.is_system, m.status, a.username, a.must_change_password,
+                                  a.last_login_at, a.failed_login_count, a.locked_until, a.session_version, m.created_at,
+                                  (SELECT COUNT(*) FROM admin_notes n WHERE n.target_member_id=m.id) AS notes_count,
+                                  (SELECT COUNT(*) FROM member_blocks b WHERE b.blocker_gmid=m.gmid OR b.blocked_gmid=m.gmid) AS block_count,
+                                  (SELECT COUNT(*) FROM pings p WHERE p.status='accepted' AND (p.requester_gmid=m.gmid OR p.target_gmid=m.gmid)) AS connection_count
                            FROM members m
                            LEFT JOIN member_auth a ON a.member_id = m.id
                            ORDER BY m.is_system DESC, m.created_at ASC, m.id ASC
@@ -1853,9 +2044,193 @@ def api_admin_members(request: Request, limit: int = 500):
                     "password_hint": "red123" if row["is_system"] else None,
                     "must_change_password": row["must_change_password"],
                     "last_login_at": row["last_login_at"],
+                    "failed_login_count": row.get("failed_login_count") or 0,
+                    "locked_until": row.get("locked_until"),
+                    "session_version": row.get("session_version") or 1,
+                    "notes_count": row.get("notes_count") or 0,
+                    "block_count": row.get("block_count") or 0,
+                    "connection_count": row.get("connection_count") or 0,
                     "created_at": row["created_at"]
                 })
             return JSONResponse(content=jsonable_encoder({"ok": True, "items": items, "admin_username": ADMIN_USERNAME}))
+    finally:
+        put_conn(conn)
+
+@app.get("/api/admin/members/{member_id}/detail")
+def api_admin_member_detail(member_id: int, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    conn = get_conn()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""SELECT m.id, m.gmid, m.alias_name, m.display_name, m.email, m.is_system, m.status,
+                                  a.username, a.must_change_password, a.last_login_at, a.failed_login_count, a.locked_until, a.session_version,
+                                  p.headline, p.biography
+                           FROM members m
+                           LEFT JOIN member_auth a ON a.member_id=m.id
+                           LEFT JOIN member_profiles p ON p.member_id=m.id
+                           WHERE m.id=%s""", (member_id,))
+            member = cur.fetchone()
+            if not member:
+                raise HTTPException(status_code=404, detail="Member not found")
+            cur.execute("SELECT n.id, n.note, n.admin_username, n.created_at FROM admin_notes n WHERE n.target_member_id=%s ORDER BY n.created_at DESC LIMIT 50", (member_id,))
+            notes = cur.fetchall()
+            cur.execute("""SELECT CASE WHEN p.requester_gmid=%s THEN p.target_gmid ELSE p.requester_gmid END AS other_gmid,
+                                  CASE WHEN p.requester_gmid=%s THEN tgt.alias_name ELSE req.alias_name END AS other_alias,
+                                  CASE WHEN p.requester_gmid=%s THEN tgt.display_name ELSE req.display_name END AS other_display_name,
+                                  p.created_at
+                           FROM pings p
+                           LEFT JOIN members req ON req.gmid=p.requester_gmid
+                           LEFT JOIN members tgt ON tgt.gmid=p.target_gmid
+                           WHERE p.status='accepted' AND (p.requester_gmid=%s OR p.target_gmid=%s)
+                           ORDER BY p.created_at DESC LIMIT 50""", (member["gmid"], member["gmid"], member["gmid"], member["gmid"], member["gmid"]))
+            connections = cur.fetchall()
+            cur.execute("""SELECT b.id, b.blocker_gmid, b.blocked_gmid, b.created_at,
+                                  mb1.alias_name AS blocker_alias, mb2.alias_name AS blocked_alias
+                           FROM member_blocks b
+                           LEFT JOIN members mb1 ON mb1.gmid=b.blocker_gmid
+                           LEFT JOIN members mb2 ON mb2.gmid=b.blocked_gmid
+                           WHERE b.blocker_gmid=%s OR b.blocked_gmid=%s
+                           ORDER BY b.created_at DESC LIMIT 50""", (member["gmid"], member["gmid"]))
+            blocks = cur.fetchall()
+            cur.execute("SELECT id, action, admin_username, details_json, created_at FROM admin_audit_log WHERE target_member_id=%s ORDER BY created_at DESC LIMIT 30", (member_id,))
+            audit = cur.fetchall()
+            return JSONResponse(content=jsonable_encoder({"ok": True, "member": member, "notes": notes, "connections": connections, "blocks": blocks, "audit": audit}))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/admin/members/{member_id}/update")
+async def api_admin_update_member(member_id: int, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    data = await request.json()
+    admin_username = request.session.get("admin_username") or ADMIN_USERNAME
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, gmid, alias_name, display_name, email, status FROM members WHERE id=%s", (member_id,))
+            member = cur.fetchone()
+            if not member:
+                raise HTTPException(status_code=404, detail="Member not found")
+            cur.execute("SELECT member_id, username, must_change_password FROM member_auth WHERE member_id=%s", (member_id,))
+            auth = cur.fetchone()
+            new_username = (data.get("username") or (auth or {}).get("username") or "").strip().lower()
+            new_alias = (data.get("alias_name") or member.get("alias_name") or "").strip()
+            new_display = (data.get("display_name") or member.get("display_name") or "").strip()
+            new_email = (data.get("email") or "").strip() or None
+            new_status = (data.get("status") or member.get("status") or "active").strip().lower()
+            must_change_password = bool(data.get("must_change_password"))
+            if not new_username:
+                raise HTTPException(status_code=400, detail="Username is required")
+            if not new_display:
+                raise HTTPException(status_code=400, detail="Display name is required")
+            if not new_alias:
+                raise HTTPException(status_code=400, detail="Alias is required")
+            if new_status not in ("active", "inactive", "ghosted"):
+                raise HTTPException(status_code=400, detail="Invalid status")
+            cur.execute("SELECT member_id FROM member_auth WHERE lower(username)=lower(%s) AND member_id<>%s", (new_username, member_id))
+            if cur.fetchone():
+                raise HTTPException(status_code=409, detail="That username is already in use")
+            cur.execute("SELECT id FROM members WHERE lower(alias_name)=lower(%s) AND id<>%s", (new_alias, member_id))
+            if cur.fetchone():
+                raise HTTPException(status_code=409, detail="That alias is already in use")
+            cur.execute("UPDATE members SET alias_name=%s, display_name=%s, email=%s, status=%s, updated_at=NOW() WHERE id=%s", (new_alias, new_display, new_email, new_status, member_id))
+            if auth:
+                cur.execute("UPDATE member_auth SET username=%s, must_change_password=%s WHERE member_id=%s", (new_username, must_change_password, member_id))
+            else:
+                cur.execute("INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)", (member_id, new_username, hash_password("red123"), must_change_password))
+            log_admin_action(cur, admin_username, member_id, member["gmid"], "member_update", {"before": {"username": (auth or {}).get("username"), "alias_name": member.get("alias_name"), "display_name": member.get("display_name"), "email": member.get("email"), "status": member.get("status")}, "after": {"username": new_username, "alias_name": new_alias, "display_name": new_display, "email": new_email, "status": new_status, "must_change_password": must_change_password}})
+            return JSONResponse(content=jsonable_encoder({"ok": True, "member_id": member_id, "username": new_username, "alias_name": new_alias, "status": new_status}))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/admin/members/{member_id}/reset-password")
+async def api_admin_reset_member_password(member_id: int, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    data = await request.json()
+    new_password = data.get("new_password") or ""
+    auto_generate = bool(data.get("auto_generate")) or not new_password
+    must_change_password = bool(data.get("must_change_password", True))
+    if auto_generate:
+        new_password = "Meridian-" + secrets.token_hex(4)
+    if not password_is_valid(new_password):
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    admin_username = request.session.get("admin_username") or ADMIN_USERNAME
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, gmid FROM members WHERE id=%s", (member_id,))
+            member = cur.fetchone()
+            if not member:
+                raise HTTPException(status_code=404, detail="Member not found")
+            cur.execute("""UPDATE member_auth
+                           SET password_hash=%s, must_change_password=%s, failed_login_count=0, locked_until=NULL,
+                               session_version=COALESCE(session_version,1)+1, password_updated_at=NOW()
+                           WHERE member_id=%s""", (hash_password(new_password), must_change_password, member_id))
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=400, detail="Member does not have login credentials")
+            log_admin_action(cur, admin_username, member_id, member["gmid"], "password_reset", {"must_change_password": must_change_password})
+            return JSONResponse(content=jsonable_encoder({"ok": True, "member_id": member_id, "temporary_password": new_password, "must_change_password": must_change_password}))
+    finally:
+        put_conn(conn)
+
+@app.post("/api/admin/members/{member_id}/logout-all")
+def api_admin_member_logout_all(member_id: int, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    admin_username = request.session.get("admin_username") or ADMIN_USERNAME
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, gmid FROM members WHERE id=%s", (member_id,))
+            member = cur.fetchone()
+            if not member:
+                raise HTTPException(status_code=404, detail="Member not found")
+            cur.execute("UPDATE member_auth SET session_version=COALESCE(session_version,1)+1 WHERE member_id=%s", (member_id,))
+            log_admin_action(cur, admin_username, member_id, member["gmid"], "logout_all_sessions", {})
+            return JSONResponse(content={"ok": True})
+    finally:
+        put_conn(conn)
+
+@app.post("/api/admin/members/{member_id}/unlock")
+def api_admin_member_unlock(member_id: int, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    admin_username = request.session.get("admin_username") or ADMIN_USERNAME
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, gmid FROM members WHERE id=%s", (member_id,))
+            member = cur.fetchone()
+            if not member:
+                raise HTTPException(status_code=404, detail="Member not found")
+            cur.execute("UPDATE member_auth SET failed_login_count=0, locked_until=NULL WHERE member_id=%s", (member_id,))
+            log_admin_action(cur, admin_username, member_id, member["gmid"], "unlock_account", {})
+            return JSONResponse(content={"ok": True})
+    finally:
+        put_conn(conn)
+
+@app.post("/api/admin/members/{member_id}/notes")
+async def api_admin_add_member_note(member_id: int, request: Request):
+    if not get_current_admin(request):
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    data = await request.json()
+    note = (data.get("note") or "").strip()
+    if not note:
+        raise HTTPException(status_code=400, detail="Note required")
+    admin_username = request.session.get("admin_username") or ADMIN_USERNAME
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, gmid FROM members WHERE id=%s", (member_id,))
+            member = cur.fetchone()
+            if not member:
+                raise HTTPException(status_code=404, detail="Member not found")
+            cur.execute("INSERT INTO admin_notes (target_member_id, admin_username, note) VALUES (%s,%s,%s) RETURNING id, note, admin_username, created_at", (member_id, admin_username, note))
+            row = cur.fetchone()
+            log_admin_action(cur, admin_username, member_id, member["gmid"], "add_admin_note", {"note_preview": note[:140]})
+            return JSONResponse(content=jsonable_encoder({"ok": True, "item": row}))
     finally:
         put_conn(conn)
 
@@ -1923,6 +2298,7 @@ def api_admin_delete_member(member_id: int, request: Request):
                                strength_score=0, experience_years=0, updated_at=NOW()
                            WHERE member_id=%s""", ('GHOST MEMBER', 'Ghosted member record retained to preserve historical network links.', member_id))
             cur.execute("UPDATE members SET display_name=%s, email=NULL, status='ghosted', is_system=FALSE WHERE id=%s", ('GHOST MEMBER', member_id))
+            log_admin_action(cur, request.session.get('admin_username') or ADMIN_USERNAME, member_id, row['gmid'], 'ghost_member', {'display_name': row['display_name']})
             return JSONResponse(content=jsonable_encoder({"ok": True, "ghosted": True, "member_id": member_id, "gmid": row["gmid"], "display_name": 'GHOST MEMBER'}))
     finally:
         put_conn(conn)
@@ -2005,6 +2381,7 @@ def api_admin_unghost_member(member_id: int, request: Request):
                               password_hash=EXCLUDED.password_hash,
                               must_change_password=EXCLUDED.must_change_password""",
                         (member_id, username, password_hash, must_change_password))
+            log_admin_action(cur, request.session.get('admin_username') or ADMIN_USERNAME, member_id, member['gmid'], 'unghost_member', {'display_name': restored_display, 'status': restored_status})
             return JSONResponse(content=jsonable_encoder({
                 "ok": True,
                 "restored": True,

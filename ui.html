@@ -1440,6 +1440,26 @@
       display: block;
     }
 
+    .login-meta {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin: 4px 0 14px;
+      font-size:10px;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+    }
+
+    .login-link {
+      color: rgba(226, 199, 119, .86);
+      text-decoration:none;
+    }
+
+    .login-link:hover {
+      color: var(--snow);
+    }
+
     .login-btn {
       position: relative;
       overflow: hidden;
@@ -1662,6 +1682,7 @@
           <label>Passphrase</label>
           <input type="password" id="loginPass" placeholder="Enter passphrase">
         </div>
+        <div class="login-meta"><span style="color:rgba(220,224,243,.42)">Member access only</span><a class="login-link" href="/forgot-password">Forgot password?</a></div>
         <div class="login-error" id="loginError">Credentials not recognised. Access denied.</div>
         <button class="login-btn" id="loginBtn">Authenticate →</button>
       </div>
@@ -1965,7 +1986,9 @@
         ls.classList.add('out');
         setTimeout(() => { window.location.href = res.redirect_url || '/me'; }, 520);
       } catch (e) {
-        const err = $('loginError'); err.textContent = 'Credentials not recognised. Access denied.'; err.classList.add('show');
+        const err = $('loginError');
+        err.textContent = (e && e.message && e.message.includes('locked')) ? e.message : 'Credentials not recognised. Access denied.';
+        err.classList.add('show');
         const btn = $('loginBtn'); btn.classList.remove('shake');
         void btn.offsetWidth; btn.classList.add('shake');
         setTimeout(() => btn.classList.remove('shake'), 450);
