@@ -628,7 +628,9 @@ def init_schema():
               status TEXT NOT NULL,
               created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
               responded_at TIMESTAMPTZ,
-              recipient_seen_at TIMESTAMPTZ
+              recipient_seen_at TIMESTAMPTZ,
+              nda_requester_signed_at TIMESTAMPTZ,
+              nda_target_signed_at TIMESTAMPTZ
             );
             CREATE TABLE IF NOT EXISTS chat_messages (
               id BIGSERIAL PRIMARY KEY,
@@ -648,6 +650,8 @@ def init_schema():
             cur.execute("ALTER TABLE members ADD COLUMN IF NOT EXISTS alias_name TEXT")
             cur.execute("ALTER TABLE member_documents ADD COLUMN IF NOT EXISTS source_type TEXT")
             cur.execute("ALTER TABLE pings ADD COLUMN IF NOT EXISTS recipient_seen_at TIMESTAMPTZ")
+            cur.execute("ALTER TABLE pings ADD COLUMN IF NOT EXISTS nda_requester_signed_at TIMESTAMPTZ")
+            cur.execute("ALTER TABLE pings ADD COLUMN IF NOT EXISTS nda_target_signed_at TIMESTAMPTZ")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_members_alias_name_unique ON members(alias_name) WHERE alias_name IS NOT NULL")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocker ON member_blocks(blocker_gmid)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocked ON member_blocks(blocked_gmid)")
@@ -1439,13 +1443,60 @@ def api_chat(ping_id: int):
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT id, requester_gmid, target_gmid, status FROM pings WHERE id=%s", (ping_id,))
+            cur.execute("""SELECT id, requester_gmid, target_gmid, status,
+                                  nda_requester_signed_at, nda_target_signed_at
+                           FROM pings WHERE id=%s""", (ping_id,))
             ping = cur.fetchone()
             if not ping: raise HTTPException(status_code=404, detail="ping not found")
             if ping["status"] != "accepted": raise HTTPException(status_code=400, detail="chat available only after accept")
+            nda = {
+                "requester_signed_at": ping.get("nda_requester_signed_at"),
+                "target_signed_at": ping.get("nda_target_signed_at"),
+                "fully_signed": bool(ping.get("nda_requester_signed_at") and ping.get("nda_target_signed_at"))
+            }
             cur.execute("SELECT * FROM chat_messages WHERE ping_id=%s ORDER BY id ASC", (ping_id,))
-            return JSONResponse(content=jsonable_encoder({"ok": True, "ping": ping, "messages": cur.fetchall()}))
+            return JSONResponse(content=jsonable_encoder({"ok": True, "ping": ping, "nda": nda, "messages": cur.fetchall()}))
     finally: put_conn(conn)
+
+@app.post("/api/ping/{ping_id}/nda/sign")
+def api_sign_nda(ping_id: int, request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""SELECT id, requester_gmid, target_gmid, status,
+                                  nda_requester_signed_at, nda_target_signed_at
+                           FROM pings WHERE id=%s""", (ping_id,))
+            ping = cur.fetchone()
+            if not ping:
+                raise HTTPException(status_code=404, detail="ping not found")
+            if ping["status"] != "accepted":
+                raise HTTPException(status_code=400, detail="NDA can be signed only after acceptance")
+            if member["gmid"] not in (ping["requester_gmid"], ping["target_gmid"]):
+                raise HTTPException(status_code=403, detail="Not part of this introduction")
+            if member["gmid"] == ping["requester_gmid"]:
+                cur.execute("""UPDATE pings
+                               SET nda_requester_signed_at=COALESCE(nda_requester_signed_at, NOW())
+                               WHERE id=%s
+                               RETURNING nda_requester_signed_at, nda_target_signed_at""", (ping_id,))
+            else:
+                cur.execute("""UPDATE pings
+                               SET nda_target_signed_at=COALESCE(nda_target_signed_at, NOW())
+                               WHERE id=%s
+                               RETURNING nda_requester_signed_at, nda_target_signed_at""", (ping_id,))
+            row = cur.fetchone()
+            return JSONResponse(content=jsonable_encoder({
+                "ok": True,
+                "ping_id": ping_id,
+                "requester_signed_at": row["nda_requester_signed_at"],
+                "target_signed_at": row["nda_target_signed_at"],
+                "fully_signed": bool(row["nda_requester_signed_at"] and row["nda_target_signed_at"])
+            }))
+    finally:
+        put_conn(conn)
+
 
 @app.post("/api/chat/{ping_id}/send")
 async def api_chat_send(ping_id: int, request: Request):
@@ -1466,6 +1517,7 @@ async def api_chat_send(ping_id: int, request: Request):
 def api_network(gmid: str):
     conn = get_conn()
     try:
+        blocked = get_blocked_gmids(conn, gmid)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""SELECT p.id, p.requester_gmid, p.target_gmid, p.created_at, p.responded_at,
                                   req.alias_name AS requester_alias,
@@ -1488,15 +1540,82 @@ def api_network(gmid: str):
                     seen.add(node_gmid)
                     nodes.append({"gmid": node_gmid, "label": label})
             add_node(gmid, "Me")
+            direct_gmids = []
+            alias_map = {gmid: "Me"}
             for r in rows:
                 other = r["target_gmid"] if r["requester_gmid"] == gmid else r["requester_gmid"]
                 other_alias = (r["target_alias"] if r["requester_gmid"] == gmid else r["requester_alias"]) or other
+                alias_map[other] = other_alias
                 add_node(other, other_alias)
+                if other not in direct_gmids:
+                    direct_gmids.append(other)
                 if other in seen_others:
                     continue
                 seen_others.add(other)
                 edges.append({"ping_id": r["id"], "other_gmid": other, "other_name": other_alias, "created_at": r["created_at"], "responded_at": r["responded_at"]})
-            return JSONResponse(content=jsonable_encoder({"ok": True, "center_gmid": gmid, "nodes": nodes, "edges": edges}))
+
+            second_degree_nodes = []
+            dotted_edges = []
+            recommendations = []
+            if direct_gmids:
+                placeholders = ",".join(["%s"] * len(direct_gmids))
+                params = tuple(direct_gmids) + tuple(direct_gmids)
+                cur.execute(f"""SELECT p.requester_gmid, p.target_gmid,
+                                       req.alias_name AS requester_alias,
+                                       tgt.alias_name AS target_alias
+                                FROM pings p
+                                LEFT JOIN members req ON req.gmid=p.requester_gmid
+                                LEFT JOIN members tgt ON tgt.gmid=p.target_gmid
+                                WHERE p.status='accepted'
+                                  AND (p.requester_gmid IN ({placeholders}) OR p.target_gmid IN ({placeholders}))""", params)
+                linked = cur.fetchall()
+                second_map = {}
+                direct_set = set(direct_gmids)
+                for r in linked:
+                    a = r["requester_gmid"]
+                    b = r["target_gmid"]
+                    if a in direct_set and b != gmid:
+                        via, candidate = a, b
+                        candidate_alias = r["target_alias"] or b
+                    elif b in direct_set and a != gmid:
+                        via, candidate = b, a
+                        candidate_alias = r["requester_alias"] or a
+                    else:
+                        continue
+                    if candidate == gmid or candidate in direct_set or candidate in blocked or via in blocked:
+                        continue
+                    entry = second_map.setdefault(candidate, {
+                        "gmid": candidate,
+                        "label": candidate_alias,
+                        "via_gmids": [],
+                        "via_aliases": []
+                    })
+                    if via not in entry["via_gmids"]:
+                        entry["via_gmids"].append(via)
+                        entry["via_aliases"].append(alias_map.get(via, via))
+                second_degree_nodes = sorted([
+                    {
+                        "gmid": v["gmid"],
+                        "label": v["label"],
+                        "via_gmids": v["via_gmids"],
+                        "via_aliases": v["via_aliases"],
+                        "mutual_count": len(v["via_gmids"])
+                    }
+                    for v in second_map.values()
+                ], key=lambda x: (-x["mutual_count"], x["label"].lower()))
+                for node in second_degree_nodes:
+                    for via in node["via_gmids"]:
+                        dotted_edges.append({"from_gmid": via, "to_gmid": node["gmid"]})
+                recommendations = second_degree_nodes[:8]
+            return JSONResponse(content=jsonable_encoder({
+                "ok": True,
+                "center_gmid": gmid,
+                "nodes": nodes,
+                "edges": edges,
+                "second_degree_nodes": second_degree_nodes,
+                "dotted_edges": dotted_edges,
+                "recommendations": recommendations
+            }))
     finally: put_conn(conn)
 
 @app.get("/api/rankings")
