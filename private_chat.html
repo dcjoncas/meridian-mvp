@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Meridian — Private Room</title>
+  <title>Meridian — Off-Record Layer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root{--obsidian:#060608;--panel:#0F1018;--surface:#171825;--rim:rgba(255,255,255,.08);--gold:#C9A84C;--gold-light:#E4C778;--blue:#63acff;--snow:#E9EAF4;--muted:#A8AECC;--ink:#101013;--chat1:rgba(234,223,175,.96);--chat2:rgba(226,210,149,.93)}
-    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at top, rgba(99,172,255,.08), transparent 30%), var(--obsidian);color:var(--snow);font-family:Montserrat,sans-serif}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at top, rgba(99,172,255,.09), transparent 30%), var(--obsidian);color:var(--snow);font-family:Montserrat,sans-serif}
     .wrap{max-width:1120px;margin:0 auto;padding:26px}.shell{border:1px solid var(--rim);border-radius:18px;background:linear-gradient(180deg,rgba(15,16,24,.96),rgba(9,10,16,.97));padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
     .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}.title{font-family:'Cormorant Garamond',serif;font-size:40px;letter-spacing:.04em}.sub{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);opacity:.75;margin-top:4px}.pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid rgba(99,172,255,.28);background:rgba(99,172,255,.08);color:#d9e6ff;font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
     .hero{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-top:18px}.card{border:1px solid rgba(255,255,255,.05);border-radius:14px;background:rgba(255,255,255,.02);padding:16px}.label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}.tiny{font-size:12px;color:rgba(168,174,204,.78);line-height:1.7}
@@ -24,34 +24,34 @@
     <div class="shell">
       <div class="top">
         <div>
-          <div class="title">Private Room</div>
-          <div class="sub">Off-record Meridian conversation · deleted when either party closes</div>
+          <div class="title">Off-Record Layer</div>
+          <div class="sub">Never saved · deleted when either side closes</div>
         </div>
-        <div class="pill">Non-Persistent Channel</div>
+        <div class="pill">Ephemeral Meridian Channel</div>
       </div>
 
       <div class="hero">
         <div class="card">
-          <div class="label">Private Room</div>
-          <div class="tiny">This room is intentionally not written to Meridian's persistent chat history. Once either person closes this room, the off-record conversation is deleted for both sides.</div>
+          <div class="label">Privacy Mode</div>
+          <div class="tiny">This layer is intentionally never written to Meridian's saved chat history. The moment either person closes this window, the off-record conversation is deleted for both sides and your default saved channel remains the standard thread.</div>
         </div>
         <div class="card">
           <div class="label">Connected With</div>
           <div id="otherAlias" style="font-family:'Cormorant Garamond',serif;font-size:28px">Loading…</div>
-          <div class="tiny" id="statusCopy" style="margin-top:8px">Opening private room…</div>
+          <div class="tiny" id="statusCopy" style="margin-top:8px">Opening off-record layer…</div>
         </div>
       </div>
 
-      <div class="chat" id="chatBox"><div class="tiny">Loading private room…</div></div>
+      <div class="chat" id="chatBox"><div class="tiny">Loading off-record layer…</div></div>
       <div class="composer">
-        <textarea id="message" placeholder="Write in the private room…"></textarea>
+        <textarea id="message" placeholder="Write off-record…"></textarea>
         <button class="btn gold" type="button" onclick="sendMessage()">Send Message</button>
       </div>
       <div class="btns">
-        <button class="btn red" type="button" onclick="closeAndExit()">Close and Exit Conversation</button>
-        <button class="btn blue" type="button" onclick="closeAndOpenPersistent()">Close and Open Persistent Chat Window</button>
+        <button class="btn red" type="button" onclick="closeAndExit()">Close Off-Record Layer</button>
+        <button class="btn blue" type="button" onclick="closeAndOpenPersistent()">Close and Return to Saved Channel</button>
       </div>
-      <div class="notice" id="notice">This private room will remain open only while both sides keep it open.</div>
+      <div class="notice" id="notice">This layer exists only while both sides keep it open.</div>
     </div>
   </div>
 <script>
@@ -74,17 +74,17 @@
     try {
       const res = await api(`/api/private-chat/${PING_ID}`);
       if(res.closed || !res.ok){
-        document.getElementById('statusCopy').textContent = 'This private room has been closed.';
-        document.getElementById('chatBox').innerHTML = '<div class="tiny">This private room has been closed by one of the participants.</div>';
+        document.getElementById('statusCopy').textContent = 'This off-record layer has been closed.';
+        document.getElementById('chatBox').innerHTML = '<div class="tiny">This off-record layer has been closed by one of the participants. Use the saved channel to continue.</div>';
         stopPolling();
         return;
       }
       const profile = await loadProfile(res.other_gmid);
       document.getElementById('otherAlias').textContent = profile.alias || profile.alias_name || 'Connected Member';
-      document.getElementById('statusCopy').textContent = `Opened ${fmt(res.created_at)} · off-record room active`;
+      document.getElementById('statusCopy').textContent = `Opened ${fmt(res.created_at)} · off-record layer active`;
       const box = document.getElementById('chatBox');
       const messages = res.messages || [];
-      if(!messages.length){ box.innerHTML = '<div class="tiny">No private messages yet. This room will not be saved once closed.</div>'; return; }
+      if(!messages.length){ box.innerHTML = '<div class="tiny">No off-record messages yet. Nothing here will be saved once this layer closes.</div>'; return; }
       box.innerHTML = '';
       for(const m of messages){
         const mine = m.sender_gmid === GMID;
@@ -96,7 +96,7 @@
       }
       box.scrollTop = box.scrollHeight;
     } catch(e){
-      document.getElementById('notice').textContent = e.message || 'Private room unavailable.';
+      document.getElementById('notice').textContent = e.message || 'Off-record layer unavailable.';
     }
   }
 
@@ -109,14 +109,14 @@
     await refresh();
   }
 
-  async function closePrivateRoom(){
+  async function closeOffRecord(){
     if(closedLocally) return;
     closedLocally = true;
     try { await fetch(`/api/private-chat/${PING_ID}/close`, { method:'POST', credentials:'same-origin', keepalive:true, headers:{'Content-Type':'application/json'} }); } catch(e){}
   }
-  async function closeAndExit(){ await closePrivateRoom(); window.close(); }
+  async function closeAndExit(){ await closeOffRecord(); window.close(); }
   async function closeAndOpenPersistent(){
-    await closePrivateRoom();
+    await closeOffRecord();
     try {
       if(window.opener && typeof window.opener.focusPersistentChat === 'function'){
         window.opener.focusPersistentChat(PING_ID);

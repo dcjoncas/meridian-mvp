@@ -19,7 +19,7 @@
     .status{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--rim);font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
     .status.pending{color:var(--gold);border-color:rgba(201,168,76,.28)}.status.accepted{color:var(--green);border-color:rgba(74,222,128,.28)}.status.declined{color:var(--red);border-color:rgba(248,113,113,.28)}
     .detail-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.05)}.detail-title{font-family:'Cormorant Garamond',serif;font-size:34px}.detail-meta{font-size:10px;letter-spacing:.2em;color:var(--platinum);opacity:.58;margin-top:6px;text-transform:uppercase}
-    .detail-block{margin-top:18px;padding:16px;border:1px solid rgba(255,255,255,.05);border-radius:12px;background:rgba(255,255,255,.02)}.detail-label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}.offrecord-indicator{margin:0 0 14px;padding:13px 14px;border:1px solid rgba(99,172,255,.20);border-radius:12px;background:linear-gradient(180deg, rgba(99,172,255,.09), rgba(255,255,255,.018));box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 12px 34px rgba(0,0,0,.18)}.offrecord-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.offrecord-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid rgba(99,172,255,.28);background:rgba(99,172,255,.11);color:#dbe8ff;font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}.offrecord-copy{margin-top:9px;font-size:11px;color:var(--platinum);opacity:.82;line-height:1.7}.offrecord-link{display:inline-flex;align-items:center;gap:8px;color:#d9e6ff;border:1px solid rgba(99,172,255,.30);background:rgba(99,172,255,.10);padding:8px 11px;border-radius:999px;font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;text-decoration:none;cursor:pointer}.offrecord-link:hover{background:rgba(99,172,255,.15)}
+    .detail-block{margin-top:18px;padding:16px;border:1px solid rgba(255,255,255,.05);border-radius:12px;background:rgba(255,255,255,.02)}.detail-label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
     .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.btn{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:11px 14px;border-radius:8px;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;cursor:pointer}.btn.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}.btn.green{border-color:rgba(74,222,128,.32);color:var(--green)}.btn.red{border-color:rgba(248,113,113,.32);color:var(--red)}.btn.blue{border-color:rgba(99,172,255,.35);color:var(--blue)}
     .empty{padding:38px;text-align:center;border:1px dashed rgba(255,255,255,.08);border-radius:12px;color:rgba(168,174,204,.48);font-family:'Cormorant Garamond',serif;font-size:22px}
     .chat-wrap{margin-top:18px}.chat-box{min-height:300px;max-height:420px;overflow:auto;border:1px solid rgba(201,168,76,.25);border-radius:12px;padding:16px;background:linear-gradient(180deg,var(--chat1),var(--chat2))}
@@ -375,7 +375,7 @@
         ? `<button class="btn green" onclick="respondCurrent('accepted')">Accept</button><button class="btn red" onclick="respondCurrent('declined')">Decline</button>`
         : `<button class="btn" disabled style="opacity:.55;cursor:default">${currentItem.status.toUpperCase()}</button>`;
       const chatSection = currentItem.status === 'accepted'
-        ? `<div class="chat-wrap">${renderOffRecordLayer()}<div class="detail-block"><div class="detail-label">Saved Channel</div><div class="chat-box" id="chatBox"><div class="tiny">Loading chat…</div></div><div class="composer"><textarea id="chatMessage" placeholder="Write a message…"></textarea><button class="btn gold" onclick="sendChat()">Send Message</button></div></div></div>`
+        ? `<div class="chat-wrap"><div class="detail-block"><div class="detail-label">Secure Channel</div><div class="chat-box" id="chatBox"><div class="tiny">Loading chat…</div></div><div class="composer"><textarea id="chatMessage" placeholder="Write a message…"></textarea><button class="btn gold" onclick="sendChat()">Send Message</button></div></div></div>`
         : '';
       $('detailPane').innerHTML = `
         <div class="detail-head">
@@ -396,27 +396,6 @@
     async function sendChat(){ const ta = $('chatMessage'); if(!ta || !currentItem) return; const message = ta.value.trim(); if(!message) return; await api(`/api/chat/${currentItem.id}/send`, { method:'POST', body: JSON.stringify({ sender_gmid: GMID, message }) }); ta.value = ''; await loadChat(); }
     function startChatPolling(){ stopChatPolling(); chatTimer = setInterval(()=>{ if(!document.hidden) loadChat(); }, 8000); }
     function stopChatPolling(){ if(chatTimer){ clearInterval(chatTimer); chatTimer = null; } }
-    function renderOffRecordLayer(){
-      if(!currentItem || currentItem.status !== 'accepted') return '';
-      const copy = "Move this conversation into Meridian's Off-Record Layer. Messages there are never written to chat history and disappear for both sides the moment either person closes the room.";
-      return `<div class="offrecord-indicator"><div class="offrecord-row"><div class="offrecord-badge">Off-Record Layer</div><button class="offrecord-link" type="button" onclick="openOffRecordLayer()">Move Off-Record</button></div><div class="offrecord-copy">${copy}</div></div>`;
-    }
-    async function openOffRecordLayer(){
-      if(!currentItem || currentItem.status !== 'accepted') return;
-      try {
-        const res = await api(`/api/private-chat/${currentItem.id}/open`, { method:'POST' });
-        const popup = window.open(res.window_url, `meridian_offrecord_${currentItem.id}`, 'width=980,height=760,menubar=no,toolbar=no,location=no,status=no');
-        if(!popup) throw new Error('Popup blocked');
-      } catch (e) {
-        showNotice('Off-record layer unavailable', e.message || 'The off-record layer could not be opened right now.', 'error');
-      }
-    }
-    async function focusPersistentChat(pingId){
-      try {
-        await openNetworkThread(pingId);
-        window.focus();
-      } catch(e){}
-    }
     function startListPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer = setInterval(()=>{ if(!document.hidden) loadLists(); }, 20000); }
     function escapeHtml(v){ return String(v ?? '').replace(/[&<>'"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[s])); }
     function showNotice(title, subtitle='', tone='gold'){ const stack=$('noticeStack'); if(!stack) return; const card=document.createElement('div'); card.className='notice'+(tone==='error'?' error':''); card.innerHTML=`<div class="notice-head"><span class="notice-dot"></span><span>${tone==='error' ? 'Meridian Notice' : 'Introduction Dispatched'}</span></div><div class="notice-title">${escapeHtml(title)}</div>${subtitle ? `<div class="notice-sub">${escapeHtml(subtitle)}</div>` : ''}`; stack.appendChild(card); setTimeout(()=>{ card.style.opacity='0'; card.style.transform='translateY(8px)'; card.style.transition='all .18s ease'; }, 3200); setTimeout(()=>card.remove(), 3450); }
