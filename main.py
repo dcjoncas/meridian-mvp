@@ -401,10 +401,10 @@ def get_openai_client():
         return None
 
 
-def ai_json_response(system_prompt: str, user_payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def ai_json_response(system_prompt: str, user_payload: Dict[str, Any]) -> Dict[str, Any]:
     client = get_openai_client()
     if client is None:
-        return None
+        raise HTTPException(status_code=503, detail="AI unavailable. Please retry.")
     try:
         response = client.responses.create(
             model=OPENAI_MODEL,
@@ -416,25 +416,29 @@ def ai_json_response(system_prompt: str, user_payload: Dict[str, Any]) -> Option
         )
         raw = getattr(response, "output_text", None)
         if not raw:
-            return None
-        return json.loads(raw)
+            raise HTTPException(status_code=503, detail="AI unavailable. Please retry.")
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=503, detail="AI unavailable. Please retry.")
+        return data
+    except HTTPException:
+        raise
     except Exception:
-        return None
+        raise HTTPException(status_code=503, detail="AI unavailable. Please retry.")
 
 
 def generate_ai_match_summary(query: str, results: List[Dict[str, Any]]) -> Dict[str, Any]:
     shortlist = ai_shortlist_context(query, results)
-    fallback = deterministic_ai_summary(query, shortlist)
-    system_prompt = """You are Meridian AI Concierge. You must stay grounded only in the shortlist profiles provided. Never invent facts, identities, relationships, or companies beyond the supplied data. Return JSON with keys: summary, top_candidates, differences, next_questions, confidence_note. top_candidates should be an array of objects with alias, gmid, score, rationale. differences and next_questions should be arrays of short strings."""
+    if not shortlist:
+        raise HTTPException(status_code=400, detail="Run a search first.")
+    system_prompt = """You are Meridian AI Concierge. You must stay grounded only in the shortlist profiles provided. Never invent facts, identities, relationships, or companies beyond the supplied data. Return JSON with keys: summary, top_candidates, differences, next_questions, confidence_note. top_candidates should be an array of objects with alias, gmid, score, rationale. differences and next_questions should be arrays of short strings. When comparing people, reference only aliases that appear in the shortlist payload."""
     user_payload = {"query": query, "shortlist": shortlist}
     data = ai_json_response(system_prompt, user_payload)
-    if not isinstance(data, dict):
-        return fallback
-    data.setdefault("source", "openai")
-    data.setdefault("summary", fallback["summary"])
-    data.setdefault("top_candidates", fallback["top_candidates"])
-    data.setdefault("differences", fallback["differences"])
-    data.setdefault("next_questions", fallback["next_questions"])
+    data["source"] = "openai"
+    data.setdefault("summary", "")
+    data.setdefault("top_candidates", [])
+    data.setdefault("differences", [])
+    data.setdefault("next_questions", [])
     return data
 
 
@@ -512,20 +516,16 @@ def deterministic_ai_chat(query: str, shortlist: List[Dict[str, Any]], question:
 
 def generate_ai_match_chat(query: str, results: List[Dict[str, Any]], messages: List[Dict[str, str]]) -> Dict[str, Any]:
     shortlist = ai_shortlist_context(query, results)
-    latest_user = ""
-    for m in reversed(messages or []):
-        if (m.get("role") or "").lower() == "user":
-            latest_user = m.get("content") or ""
-            break
-    fallback = deterministic_ai_chat(query, shortlist, latest_user)
-    system_prompt = """You are Meridian AI Concierge. Answer only from the provided shortlist. Do not mention people outside the shortlist. Do not invent facts. Be concise, high-signal, and comparison-oriented. Return JSON with keys: answer, suggested_focus, confidence_note."""
+    if not shortlist:
+        raise HTTPException(status_code=400, detail="Run a search first.")
+    if not messages:
+        raise HTTPException(status_code=400, detail="Question required")
+    system_prompt = """You are Meridian AI Concierge. Answer only from the provided shortlist. Do not mention people outside the shortlist. Do not invent facts. Be concise, high-signal, and comparison-oriented. Return JSON with keys: answer, suggested_focus, confidence_note. For comparisons, use only aliases present in the shortlist payload."""
     user_payload = {"query": query, "shortlist": shortlist, "messages": messages[-8:]}
     data = ai_json_response(system_prompt, user_payload)
-    if not isinstance(data, dict):
-        return fallback
-    data.setdefault("source", "openai")
-    data.setdefault("answer", fallback["answer"])
-    data.setdefault("suggested_focus", fallback["suggested_focus"])
+    data["source"] = "openai"
+    data.setdefault("answer", "")
+    data.setdefault("suggested_focus", [])
     return data
 
 def init_schema():
@@ -1466,6 +1466,7 @@ async def api_chat_send(ping_id: int, request: Request):
 def api_network(gmid: str):
     conn = get_conn()
     try:
+        blocked = get_blocked_gmids(conn, gmid)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""SELECT p.id, p.requester_gmid, p.target_gmid, p.created_at, p.responded_at,
                                   req.alias_name AS requester_alias,
@@ -1488,15 +1489,82 @@ def api_network(gmid: str):
                     seen.add(node_gmid)
                     nodes.append({"gmid": node_gmid, "label": label})
             add_node(gmid, "Me")
+            direct_gmids = []
+            alias_map = {gmid: "Me"}
             for r in rows:
                 other = r["target_gmid"] if r["requester_gmid"] == gmid else r["requester_gmid"]
                 other_alias = (r["target_alias"] if r["requester_gmid"] == gmid else r["requester_alias"]) or other
+                alias_map[other] = other_alias
                 add_node(other, other_alias)
+                if other not in direct_gmids:
+                    direct_gmids.append(other)
                 if other in seen_others:
                     continue
                 seen_others.add(other)
                 edges.append({"ping_id": r["id"], "other_gmid": other, "other_name": other_alias, "created_at": r["created_at"], "responded_at": r["responded_at"]})
-            return JSONResponse(content=jsonable_encoder({"ok": True, "center_gmid": gmid, "nodes": nodes, "edges": edges}))
+
+            second_degree_nodes = []
+            dotted_edges = []
+            recommendations = []
+            if direct_gmids:
+                placeholders = ",".join(["%s"] * len(direct_gmids))
+                params = tuple(direct_gmids) + tuple(direct_gmids)
+                cur.execute(f"""SELECT p.requester_gmid, p.target_gmid,
+                                       req.alias_name AS requester_alias,
+                                       tgt.alias_name AS target_alias
+                                FROM pings p
+                                LEFT JOIN members req ON req.gmid=p.requester_gmid
+                                LEFT JOIN members tgt ON tgt.gmid=p.target_gmid
+                                WHERE p.status='accepted'
+                                  AND (p.requester_gmid IN ({placeholders}) OR p.target_gmid IN ({placeholders}))""", params)
+                linked = cur.fetchall()
+                second_map = {}
+                direct_set = set(direct_gmids)
+                for r in linked:
+                    a = r["requester_gmid"]
+                    b = r["target_gmid"]
+                    if a in direct_set and b != gmid:
+                        via, candidate = a, b
+                        candidate_alias = r["target_alias"] or b
+                    elif b in direct_set and a != gmid:
+                        via, candidate = b, a
+                        candidate_alias = r["requester_alias"] or a
+                    else:
+                        continue
+                    if candidate == gmid or candidate in direct_set or candidate in blocked or via in blocked:
+                        continue
+                    entry = second_map.setdefault(candidate, {
+                        "gmid": candidate,
+                        "label": candidate_alias,
+                        "via_gmids": [],
+                        "via_aliases": []
+                    })
+                    if via not in entry["via_gmids"]:
+                        entry["via_gmids"].append(via)
+                        entry["via_aliases"].append(alias_map.get(via, via))
+                second_degree_nodes = sorted([
+                    {
+                        "gmid": v["gmid"],
+                        "label": v["label"],
+                        "via_gmids": v["via_gmids"],
+                        "via_aliases": v["via_aliases"],
+                        "mutual_count": len(v["via_gmids"])
+                    }
+                    for v in second_map.values()
+                ], key=lambda x: (-x["mutual_count"], x["label"].lower()))
+                for node in second_degree_nodes:
+                    for via in node["via_gmids"]:
+                        dotted_edges.append({"from_gmid": via, "to_gmid": node["gmid"]})
+                recommendations = second_degree_nodes[:8]
+            return JSONResponse(content=jsonable_encoder({
+                "ok": True,
+                "center_gmid": gmid,
+                "nodes": nodes,
+                "edges": edges,
+                "second_degree_nodes": second_degree_nodes,
+                "dotted_edges": dotted_edges,
+                "recommendations": recommendations
+            }))
     finally: put_conn(conn)
 
 @app.get("/api/rankings")
