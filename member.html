@@ -18,7 +18,7 @@
     .identity{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.05);margin-bottom:14px}
     .av{width:48px;height:48px;border-radius:50%;border:1px solid rgba(201,168,76,.28);display:flex;align-items:center;justify-content:center;color:var(--gold);font-family:'Cormorant Garamond',serif;font-size:20px}
     .name{font-family:'Cormorant Garamond',serif;font-size:28px}.meta{font-size:9px;letter-spacing:.18em;color:var(--platinum);opacity:.55;margin-top:4px}.gmid-card{margin:12px 0 16px;padding:14px;border:1px solid rgba(201,168,76,.18);border-radius:12px;background:rgba(201,168,76,.04);overflow:hidden}.gmid-label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}.gmid-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:nowrap;min-width:0}.gmid-value{flex:1 1 auto;min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word;line-height:1.45;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;letter-spacing:.04em;color:var(--snow)}.gmid-actions{display:flex;gap:8px;flex:0 0 auto;flex-wrap:wrap;justify-content:flex-end}.mini-btn{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:8px 10px;border-radius:999px;font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;cursor:pointer}.mini-btn.gold{border-color:rgba(201,168,76,.35);color:var(--gold)}
-    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.tab{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:9px 12px;border-radius:999px;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;cursor:pointer}.tab.active{border-color:rgba(201,168,76,.36);color:var(--gold);background:rgba(201,168,76,.05)}
+    .tabs{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}.metric-group{padding:12px;border:1px solid rgba(255,255,255,.05);border-radius:12px;background:rgba(255,255,255,.02)}.metric-group-label{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}.metric-grid{display:flex;gap:8px;flex-wrap:wrap}.tab{border:1px solid var(--rim);background:transparent;color:var(--platinum);padding:9px 12px;border-radius:999px;font-size:8px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;cursor:pointer}.tab.active{border-color:rgba(201,168,76,.36);color:var(--gold);background:rgba(201,168,76,.05)}
     .tiny{font-size:11px;color:rgba(168,174,204,.72);line-height:1.7}.list{display:flex;flex-direction:column;gap:10px;max-height:760px;overflow:auto}
     .ping{border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:12px;background:rgba(255,255,255,.015);cursor:pointer;transition:.18s}.ping:hover{border-color:rgba(255,255,255,.11);transform:translateY(-1px)}.ping.active{border-color:rgba(201,168,76,.28);background:rgba(201,168,76,.035)}
     .row{display:flex;align-items:center;justify-content:space-between;gap:12px}.alias{font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--snow)}.ping-meta{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--platinum);opacity:.55;margin-top:6px;display:flex;gap:8px;flex-wrap:wrap}.brief{margin-top:10px;color:rgba(233,234,244,.84);line-height:1.7}
@@ -92,10 +92,24 @@
         </div>
 
         <div class="tabs">
-          <button class="tab active" data-tab="received">Inbox</button>
-          <button class="tab" data-tab="received_results">Received Results</button>
-          <button class="tab" data-tab="sent">Sent Pending</button>
-          <button class="tab" data-tab="sent_results">Sent Results</button>
+          <div class="metric-group">
+            <div class="metric-group-label">Your actions on requests sent to you</div>
+            <div class="metric-grid">
+              <button class="tab active" data-tab="received_unread">Unread</button>
+              <button class="tab" data-tab="received_read">Read / Pending</button>
+              <button class="tab" data-tab="received_accepted">Accepted by You</button>
+              <button class="tab" data-tab="received_declined">Declined by You</button>
+            </div>
+          </div>
+          <div class="metric-group">
+            <div class="metric-group-label">What others did with requests you sent</div>
+            <div class="metric-grid">
+              <button class="tab" data-tab="sent_unread">Unread by Recipient</button>
+              <button class="tab" data-tab="sent_read">Read / Pending</button>
+              <button class="tab" data-tab="sent_accepted">Accepted by Recipient</button>
+              <button class="tab" data-tab="sent_declined">Declined by Recipient</button>
+            </div>
+          </div>
         </div>
 
         <div class="tiny" id="inboxCount" style="margin-bottom:8px">0 items</div>
@@ -207,7 +221,7 @@
     const $ = id => document.getElementById(id);
     const _adj=['Blue','Red','Green','Swift','Bold','Wise','Fierce','Calm','Silent','Brave','Mystic','Dark','Light','Stormy','Fiery','Icy','Golden','Silver','Shadow','Thunder','Ancient','Eternal','Vivid','Quiet','Loud','Sharp','Dull','Bright','Dim','Hot','Cold','Wet','Dry','Fast','Slow','Heavy','Strong','Weak','Tall','Short','Long','Brief','Deep','Shallow','Wide','Narrow','Old','New','Young','Aged','Pure','Tainted','Clear','Cloudy','Sunny','Rainy','Windy','Still','Wild','Tame','Free','Bound','Happy','Sad','Angry','Peaceful','Chaotic','Orderly','Elegant','Clumsy','Graceful','Awkward','Smart','Clever','Rich','Poor','Full','Empty','Open','Closed','Locked','Unlocked','Safe','Dangerous','Friendly','Hostile','Warm','Cool','Soft','Hard','Smooth','Rough','Shiny','Matte','Vibrant','Faded','Iron','Velvet'];
     const _nou=['Dragon','Phoenix','Tiger','Eagle','Wolf','Fox','Bear','Lion','Hawk','Raven','Shark','Panther','Owl','Falcon','Viper','Cobra','Lynx','Stag','Bull','Horse','Snake','Spider','Scorpion','Whale','Dolphin','Fish','Bird','Cat','Dog','Mouse','Bat','Deer','Elk','Moose','Rabbit','Hare','Squirrel','Beaver','Otter','Seal','Walrus','Penguin','Ostrich','Peacock','Parrot','Crow','Dove','Swan','Goose','Duck','Pig','Cow','Sheep','Goat','Donkey','Mule','Camel','Llama','Elephant','Rhino','Hippo','Giraffe','Zebra','Antelope','Buffalo','Bison','Yak','Monkey','Ape','Gorilla','Chimp','Lemur','Sloth','Koala','Kangaroo','Platypus','Turtle','Tortoise','Lizard','Gecko','Iguana','Alligator','Crocodile','Frog','Toad','Salamander','Newt','Butterfly','Moth','Bee','Wasp','Condor','Manta','Narwhal','Puma','Jaguar','Raptor','Coyote','Badger'];
-    let currentProfile = null, inboxItems = [], outboxItems = [], activeItems = [], currentItem = null, chatTimer = null, pollTimer = null, profileCache = {}, activeTab='received', lastMatchQuery = '', lastMatchResults = [], aiChatMessages = [], blockedMap = new Map(); 
+    let currentProfile = null, inboxItems = [], outboxItems = [], activeItems = [], currentItem = null, chatTimer = null, pollTimer = null, profileCache = {}, activeTab='received_unread', lastMatchQuery = '', lastMatchResults = [], aiChatMessages = [], blockedMap = new Map(); 
     function aliasValue(entity, fallback='Unassigned Alias'){ if(!entity) return fallback; if(typeof entity === 'string'){ const fromCache = profileCache[entity]; if(fromCache && fromCache.alias_name) return fromCache.alias_name; if(currentProfile && currentProfile.gmid === entity && currentProfile.alias_name) return currentProfile.alias_name; return fallback; } return entity.alias_name || fallback; }
 
     function isBlocked(gmid){ return blockedMap.has(gmid); }
@@ -253,30 +267,68 @@
       } catch(e) { outboxItems = []; }
       renderList();
     }
-    function getTabItems(){
-      if(activeTab==='received') return inboxItems.filter(x=>x.status==='pending');
-      if(activeTab==='received_results') return inboxItems.filter(x=>x.status==='accepted' || x.status==='declined');
-      if(activeTab==='sent') return outboxItems.filter(x=>x.status==='pending');
-      if(activeTab==='sent_results') return outboxItems.filter(x=>x.status==='accepted' || x.status==='declined');
-      return inboxItems;
-    }
     function otherParty(item){
       const gmid = item.requester_gmid===GMID ? item.target_gmid : item.requester_gmid;
       return gmid;
     }
+    function metricBuckets(){
+      return {
+        received_unread: inboxItems.filter(x=>x.status==='pending' && !x.recipient_has_seen),
+        received_read: inboxItems.filter(x=>x.status==='pending' && x.recipient_has_seen),
+        received_accepted: inboxItems.filter(x=>x.status==='accepted'),
+        received_declined: inboxItems.filter(x=>x.status==='declined'),
+        sent_unread: outboxItems.filter(x=>x.status==='pending' && !x.recipient_has_seen),
+        sent_read: outboxItems.filter(x=>x.status==='pending' && x.recipient_has_seen),
+        sent_accepted: outboxItems.filter(x=>x.status==='accepted'),
+        sent_declined: outboxItems.filter(x=>x.status==='declined')
+      };
+    }
+    function tabMeta(){
+      return {
+        received_unread: 'Received by you · unread and awaiting your decision',
+        received_read: 'Received by you · opened but still pending your decision',
+        received_accepted: 'Received by you · accepted by you',
+        received_declined: 'Received by you · declined by you',
+        sent_unread: 'Sent by you · recipient has not opened yet',
+        sent_read: 'Sent by you · recipient opened but has not responded',
+        sent_accepted: 'Sent by you · recipient accepted',
+        sent_declined: 'Sent by you · recipient declined'
+      };
+    }
+    function emptyTabLabel(){
+      return {
+        received_unread:'No unread requests sent to you.',
+        received_read:'No opened requests still pending your decision.',
+        received_accepted:'No requests accepted by you yet.',
+        received_declined:'No requests declined by you yet.',
+        sent_unread:'No sent requests are still unread.',
+        sent_read:'No sent requests are currently read but pending.',
+        sent_accepted:'No sent requests have been accepted yet.',
+        sent_declined:'No sent requests have been declined yet.'
+      };
+    }
+    function getTabItems(){
+      return metricBuckets()[activeTab] || [];
+    }
     function renderList(){
-      const pendingCount = inboxItems.filter(x=>x.status==='pending').length;
+      const buckets = metricBuckets();
+      const pendingCount = buckets.received_unread.length + buckets.received_read.length + buckets.sent_unread.length + buckets.sent_read.length;
       acceptedConnections = [...inboxItems, ...outboxItems].filter(x=>x.status==='accepted').length;
-      const unreadInboxCount = inboxItems.filter(x=>x.status==='pending' && !x.recipient_has_seen).length;
-      const sentReadCount = outboxItems.filter(x=>x.recipient_has_seen).length;
       $('heroConnections').textContent = acceptedConnections;
       $('heroPending').textContent = pendingCount;
       $('heroSent').textContent = outboxItems.length;
+      document.querySelectorAll('.tab').forEach(btn => {
+        const key = btn.dataset.tab;
+        const count = (buckets[key] || []).length;
+        const base = btn.dataset.baseLabel || btn.textContent.replace(/\s*\(\d+\)$/,'');
+        btn.dataset.baseLabel = base;
+        btn.textContent = `${base} (${count})`;
+      });
       activeItems = getTabItems();
-      $('inboxCount').textContent = `${activeItems.length} item${activeItems.length!==1?'s':''} · Inbox unread ${unreadInboxCount} · Sent read ${sentReadCount}/${outboxItems.length}`;
+      $('inboxCount').textContent = `${tabMeta()[activeTab] || 'Introductions'} · ${activeItems.length} item${activeItems.length!==1?'s':''}`;
       const root = $('inboxList');
       if(!activeItems.length){
-        const label = activeTab==='received' ? 'No pending introductions.' : activeTab==='received_results' ? 'No received results yet.' : activeTab==='sent_results' ? 'No sent results yet.' : 'No sent pending items.';
+        const label = emptyTabLabel()[activeTab] || 'No items.';
         root.innerHTML = `<div class="empty">${label}</div>`;
         $('detailPane').innerHTML = '<div class="empty">No item selected.</div>';
         currentItem = null;
@@ -291,8 +343,9 @@
         div.className='ping'+(currentItem&&currentItem.id===item.id?' active':'');
         div.onclick=()=>selectItem(item.id);
         const isSent = item.requester_gmid===GMID;
-        const readLabel = isSent ? (item.recipient_has_seen ? 'Read' : 'Unread') : (item.recipient_has_seen ? 'Opened' : 'Unread');
-        div.innerHTML=`<div class="row"><div class="alias">${who}</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><div class="status ${item.status}">${item.status}</div><div class="status ${item.recipient_has_seen ? 'accepted' : 'pending'}">${readLabel}</div></div></div><div class="ping-meta"><span>${isSent ? 'Sent by you' : 'Sent to you'}</span><span>·</span><span>Match ${item.score}/100</span><span>·</span><span>${fmt(item.created_at)}</span></div><div class="brief">${escapeHtml(item.request_text)}</div>`;
+        const readLabel = item.status === 'pending' ? (item.recipient_has_seen ? 'Read' : 'Unread') : 'Responded';
+        const readTone = item.status === 'pending' ? (item.recipient_has_seen ? 'accepted' : 'pending') : item.status;
+        div.innerHTML=`<div class="row"><div class="alias">${who}</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><div class="status ${item.status}">${item.status}</div><div class="status ${readTone}">${readLabel}</div></div></div><div class="ping-meta"><span>${isSent ? 'Sent by you' : 'Sent to you'}</span><span>·</span><span>Match ${item.score}/100</span><span>·</span><span>${fmt(item.created_at)}</span></div><div class="brief">${escapeHtml(item.request_text)}</div>`;
         root.appendChild(div);
       }
       if(!currentItem || !activeItems.find(x=>x.id===currentItem.id)) selectItem(activeItems[0].id); else highlightActive();
@@ -306,7 +359,7 @@
       const whoGmid = otherParty(currentItem);
       const whoAlias = aliasValue(whoGmid);
       const isRecipient = currentItem.target_gmid === GMID;
-      const readState = currentItem.recipient_has_seen ? 'Read' : 'Unread';
+      const readState = currentItem.status === 'pending' ? (currentItem.recipient_has_seen ? 'Read / Pending' : 'Unread / Pending') : `Read / ${currentItem.status === 'accepted' ? 'Accepted' : 'Declined'}`;
       const actionButtons = (currentItem.status === 'pending' && isRecipient)
         ? `<button class="btn green" onclick="respondCurrent('accepted')">Accept</button><button class="btn red" onclick="respondCurrent('declined')">Decline</button>`
         : `<button class="btn" disabled style="opacity:.55;cursor:default">${currentItem.status.toUpperCase()}</button>`;
@@ -322,7 +375,7 @@
           <div class="status ${currentItem.status}">${currentItem.status}</div>
         </div>
         <div class="detail-block"><div class="detail-label">Introduction Brief</div><div class="brief">${escapeHtml(currentItem.request_text)}</div></div>
-        <div class="detail-block"><div class="detail-label">Status</div><div class="tiny">Match score: <strong>${currentItem.score}/100</strong><br>Created: ${fmt(currentItem.created_at)}${currentItem.responded_at ? `<br>Responded: ${fmt(currentItem.responded_at)}` : ''}${currentItem.recipient_seen_at ? `<br>Read: ${fmt(currentItem.recipient_seen_at)}` : `<br>Read: Not yet`}<br>Direction: ${isRecipient ? 'Received by you' : 'Sent by you'}<br>Read state: ${readState}</div><div class="btns">${actionButtons}${blockActionButton(whoGmid)}</div></div>
+        <div class="detail-block"><div class="detail-label">Status</div><div class="tiny">Match score: <strong>${currentItem.score}/100</strong><br>Created: ${fmt(currentItem.created_at)}${currentItem.responded_at ? `<br>Responded: ${fmt(currentItem.responded_at)}` : ''}${currentItem.recipient_seen_at ? `<br>Read: ${fmt(currentItem.recipient_seen_at)}` : `<br>Read: Not yet`}<br>Direction: ${isRecipient ? 'Received by you' : 'Sent by you'}<br>Metric lane: ${tabMeta()[activeTab] || 'Introductions'}<br>Read state: ${readState}</div><div class="btns">${actionButtons}${blockActionButton(whoGmid)}</div></div>
         ${chatSection}
       `;
       if(currentItem.status === 'accepted'){ await loadChat(); startChatPolling(); } else stopChatPolling();
@@ -367,8 +420,8 @@
       const clean = `${window.location.pathname}${PAGE_PARAMS.toString() ? '?' + PAGE_PARAMS.toString() : ''}`;
       window.history.replaceState({}, '', clean);
       await loadLists();
-      activeTab='sent';
-      document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab==='sent'));
+      activeTab='sent_unread';
+      document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab==='sent_unread'));
       renderList();
       const match = outboxItems.find(x => x.target_gmid === targetGmid && x.status === 'pending');
       if(match){ await selectItem(match.id); }
@@ -487,7 +540,7 @@
         showNotice('Conversation unavailable', 'This accepted thread could not be opened right now.', 'error');
         return;
       }
-      activeTab = match.requester_gmid === GMID ? 'sent_results' : 'received_results';
+      activeTab = match.requester_gmid === GMID ? 'sent_accepted' : 'received_accepted';
       document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===activeTab));
       renderList();
       closeNetwork();
