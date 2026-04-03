@@ -6,57 +6,12 @@ from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from threading import Lock
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from psycopg2.pool import SimpleConnectionPool
 from psycopg2.extras import Json, RealDictCursor
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-TEMP_PRIVATE_CHATS = {}
-TEMP_PRIVATE_CHAT_LOCK = Lock()
-
-def ensure_temp_private_chat(ping_id: int, requester_gmid: str, target_gmid: str):
-    with TEMP_PRIVATE_CHAT_LOCK:
-        room = TEMP_PRIVATE_CHATS.get(ping_id)
-        if not room:
-            room = {
-                "ping_id": ping_id,
-                "users": {requester_gmid, target_gmid},
-                "messages": [],
-                "created_at": datetime.utcnow().isoformat() + "Z",
-                "closed": False,
-                "closed_by": None,
-                "closed_at": None,
-            }
-            TEMP_PRIVATE_CHATS[ping_id] = room
-        return room
-
-def close_temp_private_chat(ping_id: int, closed_by: str | None = None):
-    with TEMP_PRIVATE_CHAT_LOCK:
-        room = TEMP_PRIVATE_CHATS.pop(ping_id, None)
-        if room is not None:
-            room["closed"] = True
-            room["closed_by"] = closed_by
-            room["closed_at"] = datetime.utcnow().isoformat() + "Z"
-        return room
-
-def get_temp_private_chat(ping_id: int):
-    with TEMP_PRIVATE_CHAT_LOCK:
-        room = TEMP_PRIVATE_CHATS.get(ping_id)
-        if not room:
-            return None
-        return {
-            "ping_id": room["ping_id"],
-            "users": set(room["users"]),
-            "messages": list(room["messages"]),
-            "created_at": room["created_at"],
-            "closed": room.get("closed", False),
-            "closed_by": room.get("closed_by"),
-            "closed_at": room.get("closed_at"),
-        }
-
 DATABASE_URL = os.getenv("DATABASE_URL")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://127.0.0.1:8000")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "meridian-dev-session-secret-change-me")
@@ -673,9 +628,7 @@ def init_schema():
               status TEXT NOT NULL,
               created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
               responded_at TIMESTAMPTZ,
-              recipient_seen_at TIMESTAMPTZ,
-              nda_requester_signed_at TIMESTAMPTZ,
-              nda_target_signed_at TIMESTAMPTZ
+              recipient_seen_at TIMESTAMPTZ
             );
             CREATE TABLE IF NOT EXISTS chat_messages (
               id BIGSERIAL PRIMARY KEY,
@@ -695,8 +648,6 @@ def init_schema():
             cur.execute("ALTER TABLE members ADD COLUMN IF NOT EXISTS alias_name TEXT")
             cur.execute("ALTER TABLE member_documents ADD COLUMN IF NOT EXISTS source_type TEXT")
             cur.execute("ALTER TABLE pings ADD COLUMN IF NOT EXISTS recipient_seen_at TIMESTAMPTZ")
-            cur.execute("ALTER TABLE pings ADD COLUMN IF NOT EXISTS nda_requester_signed_at TIMESTAMPTZ")
-            cur.execute("ALTER TABLE pings ADD COLUMN IF NOT EXISTS nda_target_signed_at TIMESTAMPTZ")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_members_alias_name_unique ON members(alias_name) WHERE alias_name IS NOT NULL")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocker ON member_blocks(blocker_gmid)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocked ON member_blocks(blocked_gmid)")
@@ -1488,60 +1439,13 @@ def api_chat(ping_id: int):
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT id, requester_gmid, target_gmid, status,
-                                  nda_requester_signed_at, nda_target_signed_at
-                           FROM pings WHERE id=%s""", (ping_id,))
+            cur.execute("SELECT id, requester_gmid, target_gmid, status FROM pings WHERE id=%s", (ping_id,))
             ping = cur.fetchone()
             if not ping: raise HTTPException(status_code=404, detail="ping not found")
             if ping["status"] != "accepted": raise HTTPException(status_code=400, detail="chat available only after accept")
-            nda = {
-                "requester_signed_at": ping.get("nda_requester_signed_at"),
-                "target_signed_at": ping.get("nda_target_signed_at"),
-                "fully_signed": bool(ping.get("nda_requester_signed_at") and ping.get("nda_target_signed_at"))
-            }
             cur.execute("SELECT * FROM chat_messages WHERE ping_id=%s ORDER BY id ASC", (ping_id,))
-            return JSONResponse(content=jsonable_encoder({"ok": True, "ping": ping, "nda": nda, "messages": cur.fetchall()}))
+            return JSONResponse(content=jsonable_encoder({"ok": True, "ping": ping, "messages": cur.fetchall()}))
     finally: put_conn(conn)
-
-@app.post("/api/ping/{ping_id}/nda/sign")
-def api_sign_nda(ping_id: int, request: Request):
-    member = get_current_member(request)
-    if not member:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    conn = get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""SELECT id, requester_gmid, target_gmid, status,
-                                  nda_requester_signed_at, nda_target_signed_at
-                           FROM pings WHERE id=%s""", (ping_id,))
-            ping = cur.fetchone()
-            if not ping:
-                raise HTTPException(status_code=404, detail="ping not found")
-            if ping["status"] != "accepted":
-                raise HTTPException(status_code=400, detail="NDA can be signed only after acceptance")
-            if member["gmid"] not in (ping["requester_gmid"], ping["target_gmid"]):
-                raise HTTPException(status_code=403, detail="Not part of this introduction")
-            if member["gmid"] == ping["requester_gmid"]:
-                cur.execute("""UPDATE pings
-                               SET nda_requester_signed_at=COALESCE(nda_requester_signed_at, NOW())
-                               WHERE id=%s
-                               RETURNING nda_requester_signed_at, nda_target_signed_at""", (ping_id,))
-            else:
-                cur.execute("""UPDATE pings
-                               SET nda_target_signed_at=COALESCE(nda_target_signed_at, NOW())
-                               WHERE id=%s
-                               RETURNING nda_requester_signed_at, nda_target_signed_at""", (ping_id,))
-            row = cur.fetchone()
-            return JSONResponse(content=jsonable_encoder({
-                "ok": True,
-                "ping_id": ping_id,
-                "requester_signed_at": row["nda_requester_signed_at"],
-                "target_signed_at": row["nda_target_signed_at"],
-                "fully_signed": bool(row["nda_requester_signed_at"] and row["nda_target_signed_at"])
-            }))
-    finally:
-        put_conn(conn)
-
 
 @app.post("/api/chat/{ping_id}/send")
 async def api_chat_send(ping_id: int, request: Request):
@@ -1558,94 +1462,10 @@ async def api_chat_send(ping_id: int, request: Request):
         return JSONResponse(content=jsonable_encoder({"ok": True}))
     finally: put_conn(conn)
 
-def _get_private_channel_ping(conn, ping_id: int, member_gmid: str):
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("""SELECT id, requester_gmid, target_gmid, status
-                       FROM pings WHERE id=%s""", (ping_id,))
-        ping = cur.fetchone()
-        if not ping:
-            raise HTTPException(status_code=404, detail="ping not found")
-        if ping["status"] != "accepted":
-            raise HTTPException(status_code=400, detail="private channel available only after accept")
-        if member_gmid not in (ping["requester_gmid"], ping["target_gmid"]):
-            raise HTTPException(status_code=403, detail="Not part of this introduction")
-        return ping
-
-@app.post("/api/private-chat/{ping_id}/open")
-def api_private_chat_open(ping_id: int, request: Request):
-    member = get_current_member(request)
-    if not member:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    conn = get_conn()
-    try:
-        ping = _get_private_channel_ping(conn, ping_id, member["gmid"])
-        room = ensure_temp_private_chat(ping_id, ping["requester_gmid"], ping["target_gmid"])
-        return JSONResponse(content=jsonable_encoder({"ok": True, "room": room, "window_url": f"/private-channel/{ping_id}"}))
-    finally:
-        put_conn(conn)
-
-@app.get("/api/private-chat/{ping_id}")
-def api_private_chat_get(ping_id: int, request: Request):
-    member = get_current_member(request)
-    if not member:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    conn = get_conn()
-    try:
-        ping = _get_private_channel_ping(conn, ping_id, member["gmid"])
-        room = get_temp_private_chat(ping_id)
-        if not room:
-            return JSONResponse(content=jsonable_encoder({"ok": False, "closed": True, "messages": [], "reason": "This private channel has been closed."}))
-        if member["gmid"] not in room["users"]:
-            raise HTTPException(status_code=403, detail="Not part of this private channel")
-        other_gmid = ping["target_gmid"] if member["gmid"] == ping["requester_gmid"] else ping["requester_gmid"]
-        return JSONResponse(content=jsonable_encoder({"ok": True, "closed": False, "other_gmid": other_gmid, "messages": room["messages"], "created_at": room["created_at"]}))
-    finally:
-        put_conn(conn)
-
-@app.post("/api/private-chat/{ping_id}/send")
-async def api_private_chat_send(ping_id: int, request: Request):
-    member = get_current_member(request)
-    if not member:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    data = await request.json()
-    msg = (data.get("message") or "").strip()
-    if not msg:
-        raise HTTPException(status_code=400, detail="message required")
-    conn = get_conn()
-    try:
-        ping = _get_private_channel_ping(conn, ping_id, member["gmid"])
-        room = ensure_temp_private_chat(ping_id, ping["requester_gmid"], ping["target_gmid"])
-        with TEMP_PRIVATE_CHAT_LOCK:
-            room = TEMP_PRIVATE_CHATS.get(ping_id)
-            if not room:
-                raise HTTPException(status_code=410, detail="private channel closed")
-            room["messages"].append({
-                "sender_gmid": member["gmid"],
-                "message": msg,
-                "created_at": datetime.utcnow().isoformat() + "Z"
-            })
-        return JSONResponse(content=jsonable_encoder({"ok": True}))
-    finally:
-        put_conn(conn)
-
-@app.post("/api/private-chat/{ping_id}/close")
-def api_private_chat_close(ping_id: int, request: Request):
-    member = get_current_member(request)
-    if not member:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    conn = get_conn()
-    try:
-        _get_private_channel_ping(conn, ping_id, member["gmid"])
-        close_temp_private_chat(ping_id, member["gmid"])
-        return JSONResponse(content=jsonable_encoder({"ok": True, "closed": True}))
-    finally:
-        put_conn(conn)
-
 @app.get("/api/network/{gmid}")
 def api_network(gmid: str):
     conn = get_conn()
     try:
-        blocked = get_blocked_gmids(conn, gmid)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""SELECT p.id, p.requester_gmid, p.target_gmid, p.created_at, p.responded_at,
                                   req.alias_name AS requester_alias,
@@ -1668,82 +1488,15 @@ def api_network(gmid: str):
                     seen.add(node_gmid)
                     nodes.append({"gmid": node_gmid, "label": label})
             add_node(gmid, "Me")
-            direct_gmids = []
-            alias_map = {gmid: "Me"}
             for r in rows:
                 other = r["target_gmid"] if r["requester_gmid"] == gmid else r["requester_gmid"]
                 other_alias = (r["target_alias"] if r["requester_gmid"] == gmid else r["requester_alias"]) or other
-                alias_map[other] = other_alias
                 add_node(other, other_alias)
-                if other not in direct_gmids:
-                    direct_gmids.append(other)
                 if other in seen_others:
                     continue
                 seen_others.add(other)
                 edges.append({"ping_id": r["id"], "other_gmid": other, "other_name": other_alias, "created_at": r["created_at"], "responded_at": r["responded_at"]})
-
-            second_degree_nodes = []
-            dotted_edges = []
-            recommendations = []
-            if direct_gmids:
-                placeholders = ",".join(["%s"] * len(direct_gmids))
-                params = tuple(direct_gmids) + tuple(direct_gmids)
-                cur.execute(f"""SELECT p.requester_gmid, p.target_gmid,
-                                       req.alias_name AS requester_alias,
-                                       tgt.alias_name AS target_alias
-                                FROM pings p
-                                LEFT JOIN members req ON req.gmid=p.requester_gmid
-                                LEFT JOIN members tgt ON tgt.gmid=p.target_gmid
-                                WHERE p.status='accepted'
-                                  AND (p.requester_gmid IN ({placeholders}) OR p.target_gmid IN ({placeholders}))""", params)
-                linked = cur.fetchall()
-                second_map = {}
-                direct_set = set(direct_gmids)
-                for r in linked:
-                    a = r["requester_gmid"]
-                    b = r["target_gmid"]
-                    if a in direct_set and b != gmid:
-                        via, candidate = a, b
-                        candidate_alias = r["target_alias"] or b
-                    elif b in direct_set and a != gmid:
-                        via, candidate = b, a
-                        candidate_alias = r["requester_alias"] or a
-                    else:
-                        continue
-                    if candidate == gmid or candidate in direct_set or candidate in blocked or via in blocked:
-                        continue
-                    entry = second_map.setdefault(candidate, {
-                        "gmid": candidate,
-                        "label": candidate_alias,
-                        "via_gmids": [],
-                        "via_aliases": []
-                    })
-                    if via not in entry["via_gmids"]:
-                        entry["via_gmids"].append(via)
-                        entry["via_aliases"].append(alias_map.get(via, via))
-                second_degree_nodes = sorted([
-                    {
-                        "gmid": v["gmid"],
-                        "label": v["label"],
-                        "via_gmids": v["via_gmids"],
-                        "via_aliases": v["via_aliases"],
-                        "mutual_count": len(v["via_gmids"])
-                    }
-                    for v in second_map.values()
-                ], key=lambda x: (-x["mutual_count"], x["label"].lower()))
-                for node in second_degree_nodes:
-                    for via in node["via_gmids"]:
-                        dotted_edges.append({"from_gmid": via, "to_gmid": node["gmid"]})
-                recommendations = second_degree_nodes[:8]
-            return JSONResponse(content=jsonable_encoder({
-                "ok": True,
-                "center_gmid": gmid,
-                "nodes": nodes,
-                "edges": edges,
-                "second_degree_nodes": second_degree_nodes,
-                "dotted_edges": dotted_edges,
-                "recommendations": recommendations
-            }))
+            return JSONResponse(content=jsonable_encoder({"ok": True, "center_gmid": gmid, "nodes": nodes, "edges": edges}))
     finally: put_conn(conn)
 
 @app.get("/api/rankings")
@@ -1827,18 +1580,12 @@ async def api_complete_invitation(token: str, request: Request):
             cur.execute("INSERT INTO members (gmid, display_name, email, alias_name, is_system, status) VALUES (%s,%s,%s,%s,FALSE,'active') RETURNING id", (gmid, display_name, email, canonical_alias(cur, gmid)))
             member_id = cur.fetchone()["id"]
             profile = {"domains":domains,"roles":roles,"experience_years":experience_years,"networks":networks,"assets":assets,"values":values,"attributes":attributes}
-            requested_username = slugify_username(username or email.split("@")[0])
-            if username:
-                final_username = unique_username(cur, username)
-                if final_username != requested_username:
-                    raise HTTPException(status_code=409, detail=f"Username '{requested_username}' is already taken. Choose another Meridian username.")
-            else:
-                final_username = unique_username(cur, requested_username)
+            username = unique_username(cur, username or email.split("@")[0])
             password = password or f"Meridian-{gmid[:8]}"
             cur.execute("INSERT INTO member_profiles (member_id, domains_json, roles_json, experience_years, networks_json, assets_json, values_json, attributes_json, strength_score) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", (member_id, Json(domains), Json(roles), experience_years, Json(networks), Json(assets), Json(values), Json(attributes), profile_strength_score(profile)))
             cur.execute("UPDATE member_invitations SET invitation_status='accepted', accepted_at=NOW() WHERE id=%s", (inv["id"],))
-            cur.execute("INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)", (member_id, final_username, hash_password(password), False))
-        return JSONResponse(content=jsonable_encoder({"ok": True, "gmid": gmid, "status": "active", "username": final_username}))
+            cur.execute("INSERT INTO member_auth (member_id, username, password_hash, must_change_password) VALUES (%s,%s,%s,%s)", (member_id, username, hash_password(password), False))
+        return JSONResponse(content=jsonable_encoder({"ok": True, "gmid": gmid, "status": "active", "username": username}))
     finally: put_conn(conn)
 
 @app.get("/api/members/discover")
