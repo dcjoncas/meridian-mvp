@@ -627,7 +627,8 @@ def init_schema():
               score INT NOT NULL,
               status TEXT NOT NULL,
               created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-              responded_at TIMESTAMPTZ
+              responded_at TIMESTAMPTZ,
+              recipient_seen_at TIMESTAMPTZ
             );
             CREATE TABLE IF NOT EXISTS chat_messages (
               id BIGSERIAL PRIMARY KEY,
@@ -646,6 +647,7 @@ def init_schema():
             """)
             cur.execute("ALTER TABLE members ADD COLUMN IF NOT EXISTS alias_name TEXT")
             cur.execute("ALTER TABLE member_documents ADD COLUMN IF NOT EXISTS source_type TEXT")
+            cur.execute("ALTER TABLE pings ADD COLUMN IF NOT EXISTS recipient_seen_at TIMESTAMPTZ")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_members_alias_name_unique ON members(alias_name) WHERE alias_name IS NOT NULL")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocker ON member_blocks(blocker_gmid)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_member_blocks_blocked ON member_blocks(blocked_gmid)")
@@ -1358,7 +1360,8 @@ def api_inbox(gmid: str, limit: int = 200):
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""SELECT p.*,
                                   req.alias_name AS requester_alias,
-                                  tgt.alias_name AS target_alias
+                                  tgt.alias_name AS target_alias,
+                                  CASE WHEN p.recipient_seen_at IS NULL THEN FALSE ELSE TRUE END AS recipient_has_seen
                            FROM pings p
                            LEFT JOIN members req ON req.gmid=p.requester_gmid
                            LEFT JOIN members tgt ON tgt.gmid=p.target_gmid
@@ -1379,7 +1382,8 @@ def api_outbox(gmid: str, limit: int = 200):
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""SELECT p.*,
                                   req.alias_name AS requester_alias,
-                                  tgt.alias_name AS target_alias
+                                  tgt.alias_name AS target_alias,
+                                  CASE WHEN p.recipient_seen_at IS NULL THEN FALSE ELSE TRUE END AS recipient_has_seen
                            FROM pings p
                            LEFT JOIN members req ON req.gmid=p.requester_gmid
                            LEFT JOIN members tgt ON tgt.gmid=p.target_gmid
@@ -1393,14 +1397,40 @@ def api_outbox(gmid: str, limit: int = 200):
             return JSONResponse(content=jsonable_encoder({"ok": True, "items": cur.fetchall()}))
     finally: put_conn(conn)
 
+@app.post("/api/ping/{ping_id}/read")
+def api_mark_ping_read(ping_id: int, request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    conn = get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""UPDATE pings
+                           SET recipient_seen_at=COALESCE(recipient_seen_at, NOW())
+                           WHERE id=%s AND target_gmid=%s
+                           RETURNING id, recipient_seen_at""", (ping_id, member["gmid"]))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Ping not found")
+            return JSONResponse(content=jsonable_encoder({"ok": True, "ping_id": row["id"], "recipient_seen_at": row["recipient_seen_at"]}))
+    finally:
+        put_conn(conn)
+
 @app.post("/api/ping/{ping_id}/respond")
 async def api_respond(ping_id: int, request: Request):
+    member = get_current_member(request)
+    if not member:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     data = await request.json(); status = (data.get("status") or "").strip().lower()
     if status not in ("accepted","declined"): raise HTTPException(status_code=400, detail="status must be accepted or declined")
     conn = get_conn()
     try:
         with conn, conn.cursor() as cur:
-            cur.execute("UPDATE pings SET status=%s, responded_at=NOW() WHERE id=%s", (status, ping_id))
+            cur.execute("""UPDATE pings
+                           SET status=%s, responded_at=NOW(), recipient_seen_at=COALESCE(recipient_seen_at, NOW())
+                           WHERE id=%s AND target_gmid=%s""", (status, ping_id, member["gmid"]))
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Ping not found")
         return JSONResponse(content=jsonable_encoder({"ok": True, "ping_id": ping_id, "status": status}))
     finally: put_conn(conn)
 

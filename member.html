@@ -93,9 +93,9 @@
 
         <div class="tabs">
           <button class="tab active" data-tab="received">Inbox</button>
-          <button class="tab" data-tab="accepted">Accepted</button>
-          <button class="tab" data-tab="declined">Declined</button>
-          <button class="tab" data-tab="sent">Sent</button>
+          <button class="tab" data-tab="received_results">Received Results</button>
+          <button class="tab" data-tab="sent">Sent Pending</button>
+          <button class="tab" data-tab="sent_results">Sent Results</button>
         </div>
 
         <div class="tiny" id="inboxCount" style="margin-bottom:8px">0 items</div>
@@ -255,9 +255,9 @@
     }
     function getTabItems(){
       if(activeTab==='received') return inboxItems.filter(x=>x.status==='pending');
-      if(activeTab==='accepted') return [...inboxItems, ...outboxItems].filter(x=>x.status==='accepted');
-      if(activeTab==='declined') return [...inboxItems, ...outboxItems].filter(x=>x.status==='declined');
-      if(activeTab==='sent') return outboxItems;
+      if(activeTab==='received_results') return inboxItems.filter(x=>x.status==='accepted' || x.status==='declined');
+      if(activeTab==='sent') return outboxItems.filter(x=>x.status==='pending');
+      if(activeTab==='sent_results') return outboxItems.filter(x=>x.status==='accepted' || x.status==='declined');
       return inboxItems;
     }
     function otherParty(item){
@@ -267,14 +267,16 @@
     function renderList(){
       const pendingCount = inboxItems.filter(x=>x.status==='pending').length;
       acceptedConnections = [...inboxItems, ...outboxItems].filter(x=>x.status==='accepted').length;
+      const unreadInboxCount = inboxItems.filter(x=>x.status==='pending' && !x.recipient_has_seen).length;
+      const sentReadCount = outboxItems.filter(x=>x.recipient_has_seen).length;
       $('heroConnections').textContent = acceptedConnections;
       $('heroPending').textContent = pendingCount;
       $('heroSent').textContent = outboxItems.length;
       activeItems = getTabItems();
-      $('inboxCount').textContent = `${activeItems.length} item${activeItems.length!==1?'s':''}`;
+      $('inboxCount').textContent = `${activeItems.length} item${activeItems.length!==1?'s':''} · Inbox unread ${unreadInboxCount} · Sent read ${sentReadCount}/${outboxItems.length}`;
       const root = $('inboxList');
       if(!activeItems.length){
-        const label = activeTab==='received' ? 'No pending introductions.' : activeTab==='accepted' ? 'No accepted items.' : activeTab==='declined' ? 'No declined items.' : 'No sent items.';
+        const label = activeTab==='received' ? 'No pending introductions.' : activeTab==='received_results' ? 'No received results yet.' : activeTab==='sent_results' ? 'No sent results yet.' : 'No sent pending items.';
         root.innerHTML = `<div class="empty">${label}</div>`;
         $('detailPane').innerHTML = '<div class="empty">No item selected.</div>';
         currentItem = null;
@@ -288,13 +290,15 @@
         const div=document.createElement('div');
         div.className='ping'+(currentItem&&currentItem.id===item.id?' active':'');
         div.onclick=()=>selectItem(item.id);
-        div.innerHTML=`<div class="row"><div class="alias">${who}</div><div class="status ${item.status}">${item.status}</div></div><div class="ping-meta"><span>Match ${item.score}/100</span><span>·</span><span>${fmt(item.created_at)}</span></div><div class="brief">${escapeHtml(item.request_text)}</div>`;
+        const isSent = item.requester_gmid===GMID;
+        const readLabel = isSent ? (item.recipient_has_seen ? 'Read' : 'Unread') : (item.recipient_has_seen ? 'Opened' : 'Unread');
+        div.innerHTML=`<div class="row"><div class="alias">${who}</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><div class="status ${item.status}">${item.status}</div><div class="status ${item.recipient_has_seen ? 'accepted' : 'pending'}">${readLabel}</div></div></div><div class="ping-meta"><span>${isSent ? 'Sent by you' : 'Sent to you'}</span><span>·</span><span>Match ${item.score}/100</span><span>·</span><span>${fmt(item.created_at)}</span></div><div class="brief">${escapeHtml(item.request_text)}</div>`;
         root.appendChild(div);
       }
       if(!currentItem || !activeItems.find(x=>x.id===currentItem.id)) selectItem(activeItems[0].id); else highlightActive();
     }
     function highlightActive(){ [...document.querySelectorAll('.ping')].forEach((el, idx) => el.classList.toggle('active', activeItems[idx] && currentItem && activeItems[idx].id===currentItem.id)); }
-    async function selectItem(id){ currentItem = activeItems.find(x => x.id === id); highlightActive(); await renderDetail(); }
+    async function selectItem(id){ currentItem = activeItems.find(x => x.id === id); if(currentItem && currentItem.target_gmid===GMID && !currentItem.recipient_has_seen){ try{ await api(`/api/ping/${currentItem.id}/read`, { method:'POST' }); currentItem.recipient_has_seen = true; const inboxMatch = inboxItems.find(x=>x.id===currentItem.id); if(inboxMatch) inboxMatch.recipient_has_seen = true; const outboxMatch = outboxItems.find(x=>x.id===currentItem.id); if(outboxMatch) outboxMatch.recipient_has_seen = true; }catch(e){} } highlightActive(); await renderDetail(); }
     async function renderDetail(){
       if(!currentItem){ $('detailPane').innerHTML = '<div class="empty">Select an introduction to review the request.</div>'; return; }
       const requester = await getProfile(currentItem.requester_gmid);
@@ -302,6 +306,7 @@
       const whoGmid = otherParty(currentItem);
       const whoAlias = aliasValue(whoGmid);
       const isRecipient = currentItem.target_gmid === GMID;
+      const readState = currentItem.recipient_has_seen ? 'Read' : 'Unread';
       const actionButtons = (currentItem.status === 'pending' && isRecipient)
         ? `<button class="btn green" onclick="respondCurrent('accepted')">Accept</button><button class="btn red" onclick="respondCurrent('declined')">Decline</button>`
         : `<button class="btn" disabled style="opacity:.55;cursor:default">${currentItem.status.toUpperCase()}</button>`;
@@ -317,7 +322,7 @@
           <div class="status ${currentItem.status}">${currentItem.status}</div>
         </div>
         <div class="detail-block"><div class="detail-label">Introduction Brief</div><div class="brief">${escapeHtml(currentItem.request_text)}</div></div>
-        <div class="detail-block"><div class="detail-label">Status</div><div class="tiny">Match score: <strong>${currentItem.score}/100</strong><br>Created: ${fmt(currentItem.created_at)}${currentItem.responded_at ? `<br>Responded: ${fmt(currentItem.responded_at)}` : ''}<br>Direction: ${isRecipient ? 'Received' : 'Sent'}</div><div class="btns">${actionButtons}${blockActionButton(whoGmid)}</div></div>
+        <div class="detail-block"><div class="detail-label">Status</div><div class="tiny">Match score: <strong>${currentItem.score}/100</strong><br>Created: ${fmt(currentItem.created_at)}${currentItem.responded_at ? `<br>Responded: ${fmt(currentItem.responded_at)}` : ''}${currentItem.recipient_seen_at ? `<br>Read: ${fmt(currentItem.recipient_seen_at)}` : `<br>Read: Not yet`}<br>Direction: ${isRecipient ? 'Received by you' : 'Sent by you'}<br>Read state: ${readState}</div><div class="btns">${actionButtons}${blockActionButton(whoGmid)}</div></div>
         ${chatSection}
       `;
       if(currentItem.status === 'accepted'){ await loadChat(); startChatPolling(); } else stopChatPolling();
@@ -482,8 +487,8 @@
         showNotice('Conversation unavailable', 'This accepted thread could not be opened right now.', 'error');
         return;
       }
-      activeTab='accepted';
-      document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab==='accepted'));
+      activeTab = match.requester_gmid === GMID ? 'sent_results' : 'received_results';
+      document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===activeTab));
       renderList();
       closeNetwork();
       await selectItem(match.id);
