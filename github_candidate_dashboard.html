@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub Candidate Dashboard</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121933;
+      --panel-2:#182243;
+      --text:#eef2ff;
+      --muted:#aab4d6;
+      --line:#2b396b;
+      --accent:#6ea8fe;
+      --accent-2:#7ef0c2;
+      --warn:#ffcc66;
+      --danger:#ff7b7b;
+      --shadow:0 18px 45px rgba(0,0,0,.28);
+      --radius:20px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,Segoe UI,Arial,sans-serif;
+      background:linear-gradient(180deg,#09101f 0%,#0e1530 100%);
+      color:var(--text);
+    }
+    .wrap{max-width:1500px;margin:0 auto;padding:24px}
+    .hero{
+      display:flex;justify-content:space-between;gap:24px;align-items:flex-start;
+      background:linear-gradient(135deg,rgba(110,168,254,.22),rgba(126,240,194,.12));
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:28px;padding:26px 28px;box-shadow:var(--shadow);
+      margin-bottom:22px;
+    }
+    .hero h1{margin:0 0 8px 0;font-size:34px;font-weight:800;letter-spacing:.2px}
+    .hero p{margin:0;color:var(--muted);max-width:850px;line-height:1.45}
+    .hero .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{
+      border:none;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer;
+      background:var(--accent);color:#09101f;
+    }
+    .btn.secondary{background:#24345f;color:var(--text);border:1px solid rgba(255,255,255,.08)}
+    .btn.ghost{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.12)}
+    input[type="file"]{display:none}
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.2fr 1fr 1fr 1fr;
+      gap:18px;
+      margin-bottom:18px;
+    }
+    .card{
+      background:rgba(18,25,51,.92);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:var(--radius);
+      padding:18px;
+      box-shadow:var(--shadow);
+    }
+    .metric .label{color:var(--muted);font-size:13px;margin-bottom:8px}
+    .metric .value{font-size:34px;font-weight:800}
+    .metric .sub{font-size:13px;color:var(--muted);margin-top:8px}
+    .highlight{
+      background:linear-gradient(135deg,rgba(110,168,254,.18),rgba(126,240,194,.08));
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 340px 1fr;
+      gap:18px;
+      align-items:start;
+    }
+    .sidebar .section-title,
+    .main .section-title{font-size:14px;font-weight:800;letter-spacing:.3px;color:var(--muted);margin-bottom:12px;text-transform:uppercase}
+    .filter-group{margin-bottom:16px}
+    .filter-group label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px}
+    .input, select{
+      width:100%;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.1);
+      background:#0f1630;color:var(--text);outline:none;
+    }
+    .range-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{
+      padding:8px 10px;border-radius:999px;background:#24345f;color:#dfe8ff;font-size:12px;
+      border:1px solid rgba(255,255,255,.06)
+    }
+
+    .main-top{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:18px;
+      margin-bottom:18px;
+    }
+
+    .bar-list{display:grid;gap:12px}
+    .bar-row .row-head{display:flex;justify-content:space-between;font-size:13px;color:#dbe4ff;margin-bottom:6px}
+    .bar{
+      height:12px;background:#0e1630;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.05)
+    }
+    .bar > span{
+      display:block;height:100%;border-radius:999px;
+      background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      width:0%;
+    }
+
+    .table-wrap{overflow:auto;border-radius:16px;border:1px solid rgba(255,255,255,.08)}
+    table{width:100%;border-collapse:collapse;min-width:1150px;background:#101833}
+    th,td{padding:14px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.07);vertical-align:top}
+    th{position:sticky;top:0;background:#16214a;font-size:12px;color:#c5d0f5;text-transform:uppercase;letter-spacing:.35px}
+    td{font-size:14px;color:#eef2ff}
+    tr:hover td{background:#131f44}
+    .score{
+      display:inline-flex;min-width:64px;justify-content:center;align-items:center;
+      padding:8px 10px;border-radius:999px;font-weight:800
+    }
+    .score.high{background:rgba(126,240,194,.14);color:var(--accent-2)}
+    .score.mid{background:rgba(255,204,102,.13);color:var(--warn)}
+    .score.low{background:rgba(255,123,123,.12);color:var(--danger)}
+    .tiny{font-size:12px;color:var(--muted)}
+    .link{color:#9fc1ff;text-decoration:none}
+    .link:hover{text-decoration:underline}
+    .yes{color:var(--accent-2);font-weight:700}
+    .no{color:var(--muted)}
+    .empty{
+      padding:44px 18px;text-align:center;color:var(--muted);
+      border:1px dashed rgba(255,255,255,.12);border-radius:18px;background:#0f1630;
+    }
+    .footer-note{margin-top:16px;color:var(--muted);font-size:12px;line-height:1.45}
+    @media (max-width: 1200px){
+      .grid{grid-template-columns:1fr 1fr}
+      .layout{grid-template-columns:1fr}
+      .main-top{grid-template-columns:1fr}
+      .hero{flex-direction:column}
+    }
+    @media (max-width: 720px){
+      .grid{grid-template-columns:1fr}
+      .wrap{padding:14px}
+      .hero h1{font-size:28px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>GitHub Candidate Dashboard</h1>
+        <p>
+          Flask-ready front-end dashboard for reviewing ranked GitHub candidates exported from your single-file miner.
+          Upload the CSV directly in the browser, or inject data from Flask with Jinja. Updated to pair with the easier --phrase / --location GitHub miner command style.
+        </p>
+      </div>
+      <div class="actions">
+        <label for="csvFile" class="btn">Load CSV</label>
+        <input id="csvFile" type="file" accept=".csv" />
+        <button class="btn secondary" id="downloadFiltered">Export Filtered CSV</button>
+        <button class="btn ghost" id="loadSample">Load Sample Data</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card metric highlight">
+        <div class="label">Candidates in view</div>
+        <div class="value" id="metricCount">0</div>
+        <div class="sub" id="metricSummary">Load a CSV or sample data to begin.</div>
+      </div>
+      <div class="card metric">
+        <div class="label">Average score</div>
+        <div class="value" id="metricAvg">0</div>
+        <div class="sub">Current filtered population</div>
+      </div>
+      <div class="card metric">
+        <div class="label">Availability signals</div>
+        <div class="value" id="metricAvail">0</div>
+        <div class="sub">Explicit public “open to work” style wording</div>
+      </div>
+      <div class="card metric">
+        <div class="label">Portfolio / website present</div>
+        <div class="value" id="metricWeb">0</div>
+        <div class="sub">Candidates with a public website URL</div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="card">
+          <div class="section-title">Filters</div>
+
+          <div class="filter-group">
+            <label for="searchText">Search</label>
+            <input class="input" id="searchText" placeholder="name, login, bio, keywords, location..." />
+          </div>
+
+          <div class="filter-group">
+            <label for="minScore">Minimum score</label>
+            <div class="range-row">
+              <input id="minScore" type="range" min="0" max="100" value="0" />
+              <span id="minScoreValue" class="chip">0</span>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label for="availabilityOnly">Availability signal</label>
+            <select id="availabilityOnly">
+              <option value="all">Show all</option>
+              <option value="yes">Only yes</option>
+              <option value="no">Only no</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="websiteOnly">Website / portfolio</label>
+            <select id="websiteOnly">
+              <option value="all">Show all</option>
+              <option value="yes">Only yes</option>
+              <option value="no">Only no</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="sortBy">Sort by</label>
+            <select id="sortBy">
+              <option value="score_desc">Score high to low</option>
+              <option value="score_asc">Score low to high</option>
+              <option value="followers_desc">Followers high to low</option>
+              <option value="repos_desc">Public repos high to low</option>
+              <option value="name_asc">Name A–Z</option>
+              <option value="login_asc">Login A–Z</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label>Keyword chips</label>
+            <div class="chips" id="keywordChips"></div>
+          </div>
+        </div>
+      
+        <div class="card" style="margin-top:18px">
+          <div class="section-title">Quick start</div>
+          <div class="tiny" style="font-size:13px; line-height:1.6; color:#d8e2ff">
+            PowerShell-friendly miner command:<br>
+            <code>python github_candidate_miner.py --phrase "open to work" --location canada --keywords "python,fastapi,aws,ai" --output candidates.csv</code>
+            <br><br>
+            Flask template injection:<br>
+            <code>&lt;script&gt;window.FLASK_CANDIDATES = {{ candidates|tojson }};&lt;/script&gt;</code>
+          </div>
+        </div>
+
+      </aside>
+
+      <section class="main">
+        <div class="main-top">
+          <div class="card">
+            <div class="section-title">Top skill keywords in filtered set</div>
+            <div class="bar-list" id="keywordBars"></div>
+          </div>
+          <div class="card">
+            <div class="section-title">Top locations in filtered set</div>
+            <div class="bar-list" id="locationBars"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Candidate table</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Candidate</th>
+                  <th>Score</th>
+                  <th>Availability</th>
+                  <th>Followers</th>
+                  <th>Repos</th>
+                  <th>Location</th>
+                  <th>Keywords</th>
+                  <th>Website</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="candidateBody"></tbody>
+            </table>
+          </div>
+          <div id="emptyState" class="empty" style="display:none;">No candidates match the current filters.</div>
+          <div class="footer-note">
+            Designed to work either as a static HTML page or a Flask template.
+            For Flask, pass a list of candidate objects into <code>window.FLASK_CANDIDATES</code> or render JSON into the page.
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // Flask option:
+    // In your Flask route, you can inject:
+    // <script>window.FLASK_CANDIDATES = {{ candidates|tojson }};</script>
+    window.FLASK_CANDIDATES = window.FLASK_CANDIDATES || [];
+
+    const state = {
+      raw: [],
+      filtered: [],
+      activeKeyword: null
+    };
+
+    const els = {
+      csvFile: document.getElementById('csvFile'),
+      loadSample: document.getElementById('loadSample'),
+      downloadFiltered: document.getElementById('downloadFiltered'),
+      searchText: document.getElementById('searchText'),
+      minScore: document.getElementById('minScore'),
+      minScoreValue: document.getElementById('minScoreValue'),
+      availabilityOnly: document.getElementById('availabilityOnly'),
+      websiteOnly: document.getElementById('websiteOnly'),
+      sortBy: document.getElementById('sortBy'),
+      keywordChips: document.getElementById('keywordChips'),
+      keywordBars: document.getElementById('keywordBars'),
+      locationBars: document.getElementById('locationBars'),
+      candidateBody: document.getElementById('candidateBody'),
+      emptyState: document.getElementById('emptyState'),
+      metricCount: document.getElementById('metricCount'),
+      metricSummary: document.getElementById('metricSummary'),
+      metricAvg: document.getElementById('metricAvg'),
+      metricAvail: document.getElementById('metricAvail'),
+      metricWeb: document.getElementById('metricWeb')
+    };
+
+    function toBool(v){
+      if (typeof v === 'boolean') return v;
+      return String(v).trim().toLowerCase() === 'true' || String(v).trim().toLowerCase() === 'yes';
+    }
+
+    function toNumber(v){
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function normalizeRow(row){
+      return {
+        login: row.login || '',
+        name: row.name || '',
+        bio: row.bio || '',
+        location: row.location || '',
+        company: row.company || '',
+        website_url: row.website_url || '',
+        followers: toNumber(row.followers),
+        public_repos: toNumber(row.public_repos),
+        pinned_repo_names: row.pinned_repo_names || '',
+        top_languages: row.top_languages || '',
+        recent_repo_names: row.recent_repo_names || '',
+        recent_repo_count: toNumber(row.recent_repo_count),
+        matching_keywords: row.matching_keywords || '',
+        availability_signal: toBool(row.availability_signal),
+        score: toNumber(row.score),
+        profile_url: row.profile_url || '',
+        notes: row.notes || ''
+      };
+    }
+
+    function parseCSV(text){
+      const lines = text.replace(/\r/g,'').split('\n').filter(Boolean);
+      if (!lines.length) return [];
+      const headers = parseCSVLine(lines[0]);
+      return lines.slice(1).map(line => {
+        const values = parseCSVLine(line);
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = values[i] ?? '');
+        return normalizeRow(obj);
+      });
+    }
+
+    function parseCSVLine(line){
+      const out = [];
+      let cur = '';
+      let inQuotes = false;
+      for(let i=0;i<line.length;i++){
+        const ch = line[i];
+        const next = line[i+1];
+        if(ch === '"' && inQuotes && next === '"'){
+          cur += '"';
+          i++;
+        } else if(ch === '"'){
+          inQuotes = !inQuotes;
+        } else if(ch === ',' && !inQuotes){
+          out.push(cur);
+          cur = '';
+        } else {
+          cur += ch;
+        }
+      }
+      out.push(cur);
+      return out;
+    }
+
+    function exportCSV(rows){
+      if (!rows.length) return;
+      const headers = Object.keys(rows[0]);
+      const csv = [
+        headers.join(','),
+        ...rows.map(r => headers.map(h => escapeCSV(r[h])).join(','))
+      ].join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'filtered_candidates.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function escapeCSV(value){
+      const s = String(value ?? '');
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+    }
+
+    function scoreClass(score){
+      if(score >= 60) return 'high';
+      if(score >= 30) return 'mid';
+      return 'low';
+    }
+
+    function includesText(candidate, q){
+      const haystack = [
+        candidate.login, candidate.name, candidate.bio, candidate.location,
+        candidate.company, candidate.website_url, candidate.matching_keywords,
+        candidate.top_languages, candidate.notes
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
+    }
+
+    function splitKeywords(value){
+      return String(value || '')
+        .split(',')
+        .map(x => x.trim())
+        .filter(Boolean);
+    }
+
+    function getKeywordCounts(rows){
+      const map = new Map();
+      rows.forEach(r => {
+        splitKeywords(r.matching_keywords).forEach(k => {
+          map.set(k, (map.get(k) || 0) + 1);
+        });
+      });
+      return [...map.entries()].sort((a,b) => b[1]-a[1]);
+    }
+
+    function getLocationCounts(rows){
+      const map = new Map();
+      rows.forEach(r => {
+        const key = (r.location || 'Unknown').trim() || 'Unknown';
+        map.set(key, (map.get(key) || 0) + 1);
+      });
+      return [...map.entries()].sort((a,b) => b[1]-a[1]);
+    }
+
+    function applyFilters(){
+      const q = els.searchText.value.trim().toLowerCase();
+      const minScore = toNumber(els.minScore.value);
+      const availabilityMode = els.availabilityOnly.value;
+      const websiteMode = els.websiteOnly.value;
+      const activeKeyword = state.activeKeyword;
+
+      let rows = state.raw.filter(r => {
+        if (r.score < minScore) return false;
+        if (q && !includesText(r, q)) return false;
+        if (availabilityMode === 'yes' && !r.availability_signal) return false;
+        if (availabilityMode === 'no' && r.availability_signal) return false;
+        if (websiteMode === 'yes' && !r.website_url) return false;
+        if (websiteMode === 'no' && r.website_url) return false;
+        if (activeKeyword && !splitKeywords(r.matching_keywords).map(x => x.toLowerCase()).includes(activeKeyword.toLowerCase())) return false;
+        return true;
+      });
+
+      rows = sortRows(rows, els.sortBy.value);
+      state.filtered = rows;
+      renderAll();
+    }
+
+    function sortRows(rows, sortBy){
+      const copy = [...rows];
+      const compareText = (a,b,field) => String(a[field]||'').localeCompare(String(b[field]||''));
+      if(sortBy === 'score_desc') copy.sort((a,b) => b.score-a.score);
+      if(sortBy === 'score_asc') copy.sort((a,b) => a.score-b.score);
+      if(sortBy === 'followers_desc') copy.sort((a,b) => b.followers-a.followers);
+      if(sortBy === 'repos_desc') copy.sort((a,b) => b.public_repos-a.public_repos);
+      if(sortBy === 'name_asc') copy.sort((a,b) => compareText(a,b,'name'));
+      if(sortBy === 'login_asc') copy.sort((a,b) => compareText(a,b,'login'));
+      return copy;
+    }
+
+    function renderMetrics(){
+      const rows = state.filtered;
+      const count = rows.length;
+      const avg = count ? (rows.reduce((sum,r)=>sum+r.score,0)/count).toFixed(1) : '0';
+      const avail = rows.filter(r => r.availability_signal).length;
+      const web = rows.filter(r => !!r.website_url).length;
+
+      els.metricCount.textContent = count;
+      els.metricAvg.textContent = avg;
+      els.metricAvail.textContent = avail;
+      els.metricWeb.textContent = web;
+      els.metricSummary.textContent = count
+        ? `${avail} with explicit availability signals, ${web} with websites or portfolios.`
+        : 'No candidates match the current filters.';
+    }
+
+    function renderKeywordChips(){
+      const counts = getKeywordCounts(state.raw).slice(0, 18);
+      els.keywordChips.innerHTML = '';
+      if(!counts.length){
+        els.keywordChips.innerHTML = '<span class="tiny">No keyword data loaded yet.</span>';
+        return;
+      }
+      counts.forEach(([keyword, count]) => {
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.style.cursor = 'pointer';
+        chip.style.background = state.activeKeyword === keyword ? 'rgba(126,240,194,.18)' : '';
+        chip.style.color = state.activeKeyword === keyword ? 'var(--accent-2)' : '';
+        chip.textContent = `${keyword} (${count})`;
+        chip.onclick = () => {
+          state.activeKeyword = state.activeKeyword === keyword ? null : keyword;
+          applyFilters();
+        };
+        els.keywordChips.appendChild(chip);
+      });
+    }
+
+    function renderBars(targetEl, items, formatter){
+      targetEl.innerHTML = '';
+      if(!items.length){
+        targetEl.innerHTML = '<div class="tiny">No data available.</div>';
+        return;
+      }
+      const max = items[0][1] || 1;
+      items.slice(0, 8).forEach(([label, value]) => {
+        const row = document.createElement('div');
+        row.className = 'bar-row';
+        row.innerHTML = `
+          <div class="row-head"><span>${formatter ? formatter(label) : label}</span><span>${value}</span></div>
+          <div class="bar"><span style="width:${(value/max)*100}%"></span></div>
+        `;
+        targetEl.appendChild(row);
+      });
+    }
+
+    function renderTable(){
+      const rows = state.filtered;
+      els.candidateBody.innerHTML = '';
+      els.emptyState.style.display = rows.length ? 'none' : 'block';
+
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const displayName = r.name || r.login;
+        tr.innerHTML = `
+          <td>
+            <div><a class="link" href="${r.profile_url || '#'}" target="_blank">${displayName}</a></div>
+            <div class="tiny">@${r.login}</div>
+            <div class="tiny">${r.company || ''}</div>
+          </td>
+          <td><span class="score ${scoreClass(r.score)}">${r.score}</span></td>
+          <td>${r.availability_signal ? '<span class="yes">Yes</span>' : '<span class="no">No</span>'}</td>
+          <td>${r.followers}</td>
+          <td>${r.public_repos}</td>
+          <td>${r.location || '<span class="tiny">—</span>'}</td>
+          <td>${r.matching_keywords || '<span class="tiny">—</span>'}</td>
+          <td>${r.website_url ? `<a class="link" href="${r.website_url}" target="_blank">Open</a>` : '<span class="tiny">—</span>'}</td>
+          <td>${r.notes || '<span class="tiny">—</span>'}</td>
+        `;
+        els.candidateBody.appendChild(tr);
+      });
+    }
+
+    function renderAll(){
+      renderMetrics();
+      renderKeywordChips();
+      renderBars(els.keywordBars, getKeywordCounts(state.filtered));
+      renderBars(els.locationBars, getLocationCounts(state.filtered));
+      renderTable();
+    }
+
+    function setData(rows){
+      state.raw = rows.map(normalizeRow);
+      state.filtered = [...state.raw];
+      applyFilters();
+    }
+
+    const sampleData = [
+      {
+        login:'octo-ai-dev',
+        name:'Alex Carter',
+        bio:'Open to work. Senior AI engineer focused on Python, FastAPI, AWS, LLM apps.',
+        location:'Denver, CO',
+        company:'@independent',
+        website_url:'https://example.com',
+        followers:148,
+        public_repos:32,
+        pinned_repo_names:'llm-toolkit, fastapi-starter',
+        top_languages:'Python, TypeScript',
+        recent_repo_names:'rag-search, eval-suite, inference-lab',
+        recent_repo_count:8,
+        matching_keywords:'python, fastapi, aws, ai, llm, typescript',
+        availability_signal:true,
+        score:83,
+        profile_url:'https://github.com/octo-ai-dev',
+        notes:'explicit availability signal; 4 target keyword hit(s); stack match; recent repo activity; website/portfolio present; higher follower count; substantial public repos'
+      },
+      {
+        login:'reactbuilder77',
+        name:'Morgan Lee',
+        bio:'Frontend engineer building React and TypeScript apps. Available for work.',
+        location:'Toronto, ON',
+        company:'',
+        website_url:'',
+        followers:27,
+        public_repos:18,
+        pinned_repo_names:'ui-kit, component-lab',
+        top_languages:'TypeScript, JavaScript',
+        recent_repo_names:'react-dashboard, design-system',
+        recent_repo_count:4,
+        matching_keywords:'react, typescript, javascript, frontend',
+        availability_signal:true,
+        score:54,
+        profile_url:'https://github.com/reactbuilder77',
+        notes:'explicit availability signal; stack match; some recent activity'
+      },
+      {
+        login:'cloudbackender',
+        name:'Jamie Singh',
+        bio:'Backend and cloud engineer. Building APIs, containers, and infra.',
+        location:'Austin, TX',
+        company:'@consulting',
+        website_url:'https://example.org',
+        followers:12,
+        public_repos:41,
+        pinned_repo_names:'terraform-blueprints, go-api',
+        top_languages:'Go, Terraform, Python',
+        recent_repo_names:'platform-core, cloud-ops, observability-kit',
+        recent_repo_count:9,
+        matching_keywords:'golang, backend, python, docker, devops, terraform',
+        availability_signal:false,
+        score:47,
+        profile_url:'https://github.com/cloudbackender',
+        notes:'stack match; recent repo activity; website/portfolio present; substantial public repos'
+      }
+    ];
+
+    els.csvFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      const text = await file.text();
+      setData(parseCSV(text));
+    });
+
+    els.loadSample.addEventListener('click', () => setData(sampleData));
+    els.downloadFiltered.addEventListener('click', () => exportCSV(state.filtered));
+    [els.searchText, els.minScore, els.availabilityOnly, els.websiteOnly, els.sortBy].forEach(el => {
+      el.addEventListener('input', applyFilters);
+      el.addEventListener('change', applyFilters);
+    });
+    els.minScore.addEventListener('input', () => {
+      els.minScoreValue.textContent = els.minScore.value;
+    });
+
+    if (Array.isArray(window.FLASK_CANDIDATES) && window.FLASK_CANDIDATES.length) {
+      setData(window.FLASK_CANDIDATES);
+    } else {
+      setData(sampleData);
+    }
+  </script>
+</body>
+</html>
