@@ -2379,3 +2379,13 @@ def api_debug():
                 "auth_accounts": auth_accounts
             }))
     finally: put_conn(conn)
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host="127.0.0.1",
+        port=8000,
+        reload=False,
+    )
