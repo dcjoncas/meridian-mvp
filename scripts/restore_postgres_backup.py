@@ -48,6 +48,19 @@ def get_json_columns(cur, table: str) -> set[str]:
     return {row[0] for row in cur.fetchall()}
 
 
+def get_target_columns(cur, table: str) -> set[str]:
+    cur.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema='public'
+          AND table_name=%s
+        """,
+        (table,),
+    )
+    return {row[0] for row in cur.fetchall()}
+
+
 def table_exists(cur, table: str) -> bool:
     cur.execute(
         """
@@ -93,9 +106,17 @@ def restore_backup(database_url: str, backup: dict, apply: bool):
                 if not table_exists(cur, table):
                     print(f"Skipping missing table: {table}")
                     continue
-                columns = tables[table].get("columns", [])
+                backup_columns = tables[table].get("columns", [])
                 rows = tables[table].get("rows", [])
-                if not columns or not rows:
+                if not backup_columns or not rows:
+                    continue
+                target_columns = get_target_columns(cur, table)
+                columns = [column for column in backup_columns if column in target_columns]
+                skipped_columns = [column for column in backup_columns if column not in target_columns]
+                if skipped_columns:
+                    print(f"Skipping unsupported columns in {table}: {', '.join(skipped_columns)}")
+                if not columns:
+                    print(f"Skipping {table}: no backup columns exist in target schema")
                     continue
                 json_columns = get_json_columns(cur, table)
                 col_sql = ", ".join(quote_ident(c) for c in columns)
@@ -116,6 +137,8 @@ def restore_backup(database_url: str, backup: dict, apply: bool):
             # Align all serial sequences after explicit id inserts.
             for table in available:
                 if not table_exists(cur, table):
+                    continue
+                if "id" not in get_target_columns(cur, table):
                     continue
                 cur.execute(
                     """
