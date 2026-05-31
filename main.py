@@ -68,6 +68,7 @@ APP_BASE_URL = os.getenv("APP_BASE_URL", "http://127.0.0.1:8000")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "meridian-dev-session-secret-change-me")
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "red123")
+DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "5") or "5")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is required for the Postgres build.")
 
@@ -140,7 +141,7 @@ def get_pool():
         if pool is not None:
             return pool
         try:
-            pool = SimpleConnectionPool(1, 10, DATABASE_URL)
+            pool = SimpleConnectionPool(1, 10, DATABASE_URL, connect_timeout=DB_CONNECT_TIMEOUT)
             logger.info("Postgres connection pool initialized")
             return pool
         except psycopg2.OperationalError as exc:
