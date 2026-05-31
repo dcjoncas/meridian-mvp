@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from threading import Lock
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+import psycopg2
 from psycopg2.pool import SimpleConnectionPool
 from psycopg2.extras import Json, RealDictCursor
 
@@ -17,6 +18,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 TEMP_PRIVATE_CHATS = {}
 TEMP_PRIVATE_CHAT_LOCK = Lock()
+DB_POOL_LOCK = Lock()
+
+
+class DatabaseUnavailableError(RuntimeError):
+    pass
 
 def ensure_temp_private_chat(ping_id: int, requester_gmid: str, target_gmid: str):
     with TEMP_PRIVATE_CHAT_LOCK:
@@ -65,7 +71,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "red123")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is required for the Postgres build.")
 
-pool = SimpleConnectionPool(1, 10, DATABASE_URL)
+pool = None
 
 
 try:
@@ -126,8 +132,36 @@ def log_admin_action(cur, admin_username: str, target_member_id: Optional[int], 
         logger.exception("Failed to write admin audit log")
 
 
-def get_conn(): return pool.getconn()
-def put_conn(conn): pool.putconn(conn)
+def get_pool():
+    global pool
+    if pool is not None:
+        return pool
+    with DB_POOL_LOCK:
+        if pool is not None:
+            return pool
+        try:
+            pool = SimpleConnectionPool(1, 10, DATABASE_URL)
+            logger.info("Postgres connection pool initialized")
+            return pool
+        except psycopg2.OperationalError as exc:
+            logger.exception("Postgres connection pool initialization failed")
+            raise DatabaseUnavailableError("Database unavailable. Please retry.") from exc
+
+
+def get_conn():
+    try:
+        return get_pool().getconn()
+    except psycopg2.OperationalError as exc:
+        logger.exception("Postgres connection checkout failed")
+        raise DatabaseUnavailableError("Database unavailable. Please retry.") from exc
+
+
+def put_conn(conn):
+    if conn is None:
+        return
+    current_pool = pool
+    if current_pool is not None:
+        current_pool.putconn(conn)
 def make_gmid(seed: str) -> str: return hashlib.sha256((seed + "|MERIDIAN_PG_V3").encode("utf-8")).hexdigest()
 def hash_password(password: str) -> str:
     return hashlib.pbkdf2_hmac("sha256", (password or "").encode("utf-8"), SESSION_SECRET.encode("utf-8"), 150000).hex()
@@ -906,8 +940,21 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 
 CANONICAL_VISIBLE_MEMBER_SQL = "COALESCE(m.status, 'active') <> 'ghost'"
 
+
+@app.exception_handler(DatabaseUnavailableError)
+async def handle_database_unavailable(request: Request, exc: DatabaseUnavailableError):
+    logger.warning("Database unavailable for %s %s", request.method, request.url.path)
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(status_code=503, content={"detail": str(exc)})
+    return HTMLResponse("Database temporarily unavailable. Please retry.", status_code=503)
+
+
 @app.on_event("startup")
-def startup(): init_schema()
+def startup():
+    try:
+        init_schema()
+    except DatabaseUnavailableError:
+        logger.warning("Skipping startup schema initialization because the database is unavailable")
 
 def ensure_member_blocks_table(conn):
     with conn.cursor() as cur:
