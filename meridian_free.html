@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Meridian Link - Free Network Access</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f4f1e8;
+      --paper-soft: #fbf8ef;
+      --mist: #dfe7e2;
+      --sage: #5d796f;
+      --sage-dark: #27433a;
+      --ink: #17211f;
+      --muted: #687773;
+      --line: rgba(39, 67, 58, .16);
+      --gold: #b88a34;
+      --coral: #c96f54;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Montserrat, sans-serif;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.62), rgba(244,241,232,.88)),
+        radial-gradient(circle at 12% 18%, rgba(93,121,111,.18), transparent 30%),
+        radial-gradient(circle at 86% 12%, rgba(184,138,52,.16), transparent 28%),
+        linear-gradient(135deg, #eef4f1 0%, #f8f0dc 48%, #edf0ec 100%);
+    }
+
+    a { color: inherit; }
+
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 24px clamp(22px, 5vw, 70px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(251,248,239,.72);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(39,67,58,.22);
+      border-radius: 16px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.88), rgba(223,231,226,.82)),
+        radial-gradient(circle at 35% 25%, rgba(184,138,52,.18), transparent 55%);
+      box-shadow: 0 16px 40px rgba(39,67,58,.12), inset 0 1px 0 rgba(255,255,255,.92);
+      color: var(--sage-dark);
+      font-family: "Cormorant Garamond", serif;
+      font-size: 29px;
+      letter-spacing: -.05em;
+    }
+
+    .brand-name {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 32px;
+      line-height: 1;
+      letter-spacing: .04em;
+    }
+
+    .brand-name em {
+      color: var(--sage);
+      font-style: italic;
+    }
+
+    .brand-sub {
+      margin-top: 6px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .private-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(39,67,58,.18);
+      text-decoration: none;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--sage-dark);
+      background: rgba(255,255,255,.54);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(340px, .72fr);
+      gap: clamp(28px, 5vw, 76px);
+      align-items: center;
+      padding: clamp(38px, 7vw, 86px) clamp(22px, 5vw, 70px);
+    }
+
+    .intro {
+      max-width: 720px;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 22px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--sage-dark);
+    }
+
+    .kicker::before {
+      content: "";
+      width: 34px;
+      height: 1px;
+      background: var(--gold);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 760px;
+      font-family: "Cormorant Garamond", serif;
+      font-size: clamp(54px, 7.8vw, 108px);
+      font-weight: 300;
+      line-height: .9;
+      letter-spacing: -.01em;
+      color: var(--ink);
+    }
+
+    h1 em {
+      color: var(--sage);
+      font-style: italic;
+    }
+
+    .copy {
+      max-width: 560px;
+      margin-top: 26px;
+      font-size: 16px;
+      line-height: 1.8;
+      color: #43514d;
+    }
+
+    .signals {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 680px;
+      margin-top: 34px;
+    }
+
+    .signal {
+      min-height: 112px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.46);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.72);
+    }
+
+    .signal strong {
+      display: block;
+      margin-bottom: 10px;
+      font-family: "Cormorant Garamond", serif;
+      font-size: 25px;
+      font-weight: 400;
+      color: var(--sage-dark);
+    }
+
+    .signal span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .login-panel {
+      border: 1px solid rgba(39,67,58,.18);
+      border-radius: 10px;
+      background: rgba(251,248,239,.86);
+      box-shadow: 0 30px 80px rgba(39,67,58,.16), inset 0 1px 0 rgba(255,255,255,.72);
+      overflow: hidden;
+    }
+
+    .login-head {
+      padding: 26px 28px 20px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.42), rgba(255,255,255,0));
+    }
+
+    .login-title {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 34px;
+      line-height: 1;
+    }
+
+    .login-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .login-body {
+      padding: 26px 28px 28px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--sage-dark);
+    }
+
+    input {
+      width: 100%;
+      height: 48px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(39,67,58,.18);
+      border-radius: 7px;
+      padding: 0 14px;
+      background: rgba(255,255,255,.72);
+      color: var(--ink);
+      font-family: Montserrat, sans-serif;
+      font-size: 13px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: rgba(93,121,111,.55);
+      box-shadow: 0 0 0 4px rgba(93,121,111,.11);
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 2px 0 18px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .row a {
+      text-decoration: none;
+      color: var(--sage-dark);
+      font-weight: 700;
+    }
+
+    .error {
+      display: none;
+      margin: -2px 0 14px;
+      color: #9d3c2b;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .error.show { display: block; }
+
+    .login-btn {
+      width: 100%;
+      min-height: 50px;
+      border: 0;
+      border-radius: 7px;
+      background: linear-gradient(135deg, var(--sage-dark), var(--sage));
+      color: #fffaf0;
+      cursor: pointer;
+      font-family: Montserrat, sans-serif;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      box-shadow: 0 16px 36px rgba(39,67,58,.22);
+    }
+
+    .login-btn:hover {
+      filter: brightness(1.04);
+    }
+
+    .foot {
+      padding: 18px clamp(22px, 5vw, 70px) 26px;
+      color: rgba(39,67,58,.55);
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 900px) {
+      .topbar, .main { padding-left: 20px; padding-right: 20px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .main { grid-template-columns: 1fr; align-items: start; }
+      .signals { grid-template-columns: 1fr; }
+      .private-link { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">M+</div>
+        <div>
+          <div class="brand-name">Meridian <em>Link</em></div>
+          <div class="brand-sub">Free connection layer</div>
+        </div>
+      </div>
+      <a class="private-link" href="/" onclick="localStorage.removeItem('meridianExperience')">Private Meridian Login</a>
+    </header>
+
+    <main class="main">
+      <section class="intro" aria-labelledby="pageTitle">
+        <div class="kicker">Simple introductions</div>
+        <h1 id="pageTitle">A lighter way to <em>connect</em> the right people.</h1>
+        <p class="copy">Meridian Link is the free entry point: quieter than a social feed, lighter than the private concierge console, and focused on warm introductions that deserve a real conversation.</p>
+        <div class="signals" aria-label="Meridian Link principles">
+          <div class="signal"><strong>Find</strong><span>Search trusted profiles and useful signals without a noisy public network.</span></div>
+          <div class="signal"><strong>Ask</strong><span>Send a concise introduction request with enough context to be useful.</span></div>
+          <div class="signal"><strong>Connect</strong><span>Move accepted requests into a direct conversation when both sides are ready.</span></div>
+        </div>
+      </section>
+
+      <section class="login-panel" aria-label="Meridian Link login">
+        <div class="login-head">
+          <div class="login-title">Enter Meridian Link</div>
+          <div class="login-note">Use your Meridian credentials. This opens the light version of the member console.</div>
+        </div>
+        <div class="login-body">
+          <label for="loginUser">Username</label>
+          <input id="loginUser" type="text" autocomplete="username" spellcheck="false" placeholder="Enter username">
+          <label for="loginPass">Password</label>
+          <input id="loginPass" type="password" autocomplete="current-password" placeholder="Enter password">
+          <div class="error" id="loginError">Credentials were not recognized.</div>
+          <div class="row"><span>Free access</span><a href="/forgot-password">Forgot password?</a></div>
+          <button class="login-btn" id="loginBtn" type="button">Login to Meridian Link</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">Meridian Link - Free access for thoughtful introductions</footer>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    async function api(url, opts = {}) {
+      const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...opts });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    function lightRedirect(url) {
+      const target = url || "/me";
+      const joiner = target.includes("?") ? "&" : "?";
+      return `${target}${joiner}experience=link`;
+    }
+
+    async function doLogin() {
+      const username = $("loginUser").value.trim().toLowerCase();
+      const password = $("loginPass").value;
+      $("loginError").classList.remove("show");
+      try {
+        const res = await api("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ username, password })
+        });
+        localStorage.setItem("meridianExperience", "link");
+        window.location.href = lightRedirect(res.redirect_url);
+      } catch (err) {
+        $("loginError").classList.add("show");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      $("loginBtn").addEventListener("click", () => { void doLogin(); });
+      $("loginPass").addEventListener("keydown", e => { if (e.key === "Enter") void doLogin(); });
+      $("loginUser").addEventListener("keydown", e => { if (e.key === "Enter") $("loginPass").focus(); });
+      try {
+        const me = await api("/api/auth/me");
+        if (me.authenticated && me.member) {
+          localStorage.setItem("meridianExperience", "link");
+          window.location.href = "/me?experience=link";
+        }
+      } catch (err) {}
+    });
+  </script>
+</body>
+</html>

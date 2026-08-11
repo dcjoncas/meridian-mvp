@@ -1072,6 +1072,12 @@ def home(request: Request):
         return RedirectResponse(url="/me", status_code=302)
     return HTMLResponse(open(os.path.join(BASE_DIR, "ui.html"), "r", encoding="utf-8").read())
 
+@app.get("/free", response_class=HTMLResponse)
+def free_home(request: Request):
+    if request.session.get("member_gmid"):
+        return RedirectResponse(url="/me?experience=link", status_code=302)
+    return HTMLResponse(open(os.path.join(BASE_DIR, "meridian_free.html"), "r", encoding="utf-8").read())
+
 @app.get("/member/{gmid}", response_class=HTMLResponse)
 def member(request: Request, gmid: str):
     session_gmid = request.session.get("member_gmid")
