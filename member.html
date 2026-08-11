@@ -67,6 +67,11 @@
     body.free-version .msg.me .bubble{background:#27433a;border-color:#27433a;color:#fffaf0}
     body.free-version .composer textarea,body.free-version .composer-inline textarea,body.free-version .chat-input{border-color:rgba(42,67,60,.18);background:rgba(255,255,255,.68);color:#17211f}
     body.free-version .empty{border-color:rgba(42,67,60,.18);color:#63746f;background:rgba(255,255,255,.36)}
+    body.free-version .premium-only,body.free-version .gmid-card{display:none!important}
+    body.free-version .workflow-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+    body.free-version .search-card{border-color:rgba(47,141,101,.22);background:linear-gradient(180deg,rgba(47,141,101,.09),rgba(255,255,255,.76) 30%,rgba(246,243,234,.92))}
+    body.free-version .result-card:before{content:"Meridian Link is the free, non-AI version: real names, basic search, limited shortlist, and simple accepted-message threads.";display:block;margin-bottom:14px;padding:12px 14px;border:1px solid rgba(47,141,101,.16);border-radius:12px;background:rgba(47,141,101,.07);color:#45645b;font-size:11px;line-height:1.6}
+    body.free-version .score-badge{border-color:rgba(42,67,60,.18);color:#45645b;background:rgba(255,255,255,.52)}
     .notice-stack{position:fixed;right:24px;bottom:24px;z-index:1200;display:flex;flex-direction:column;gap:12px;pointer-events:none}
     .notice{min-width:360px;max-width:520px;padding:16px 18px;border-radius:14px;border:1px solid rgba(201,168,76,.28);background:linear-gradient(180deg,rgba(13,13,19,.96),rgba(9,9,14,.98));box-shadow:0 18px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.02);pointer-events:auto;animation:noticeIn .22s ease-out}
     .notice.error{border-color:rgba(248,113,113,.34)}
@@ -101,10 +106,10 @@
       <div class="nav">
         <a href="/me" class="gold">My Concierge</a>
         <a href="/members" class="blue">Members</a>
-        <a href="/rankings" class="blue">Group Rankings</a>
-        <a href="/invite-member" class="gold">Invite New Member</a>
+        <a href="/rankings" class="blue premium-only">Group Rankings</a>
+        <a href="/invite-member" class="gold premium-only">Invite New Member</a>
         <a href="/free" class="blue" id="freeModeLink">Meridian Link</a>
-        <button class="blue" id="openNetworkBtn" type="button">My Network</button>
+        <button class="blue premium-only" id="openNetworkBtn" type="button">My Network</button>
         <button class="blue" id="logoutBtn" type="button">Logout</button>
       </div>
     </div>
@@ -187,8 +192,8 @@
             </div>
             <div class="quick-links">
               <a href="/members" class="btn blue">Browse Members</a>
-              <a href="/rankings" class="btn blue">Group Rankings</a>
-              <a href="/invite-member" class="btn gold">Invite New Member</a>
+              <a href="/rankings" class="btn blue premium-only">Group Rankings</a>
+              <a href="/invite-member" class="btn gold premium-only">Invite New Member</a>
             </div>
           </div>
           <div class="quick-card">
@@ -246,7 +251,7 @@
               <div class="workflow-step-copy">Review the grounded member set before narrowing.</div>
               <div class="workflow-step-meta" id="workflowStep2Meta">No shortlist yet</div>
             </div>
-            <div class="workflow-step step3" id="workflowStep3">
+            <div class="workflow-step step3 premium-only" id="workflowStep3">
               <div class="workflow-step-kicker">Step 3</div>
               <div class="workflow-step-title">Use AI Narrowing</div>
               <div class="workflow-step-copy">Use AI once the right candidates are on screen.</div>
@@ -256,7 +261,7 @@
           <div class="workflow-actions">
             <button class="btn gold" id="workflowGoSearchBtn" type="button">Back to Search</button>
             <button class="btn gold" id="workflowGoShortlistBtn" type="button">Go to Shortlist</button>
-            <button class="btn blue" id="workflowGoAiBtn" type="button">Go to AI Narrowing</button>
+            <button class="btn blue premium-only" id="workflowGoAiBtn" type="button">Go to AI Narrowing</button>
           </div>
         </div>
 
@@ -277,7 +282,7 @@
                 <div class="flow-stage-copy">Review the returned members clearly before any AI interpretation is applied.</div>
                 <span class="flow-stage-tag">Grounded · Member-first · Clear</span>
               </div>
-              <div class="flow-stage step-two">
+              <div class="flow-stage step-two premium-only">
                 <div class="flow-step-num">3</div>
                 <div class="flow-stage-title">Step 3 · Meridian AI Concierge</div>
                 <div class="flow-stage-head">AI interpretation and narrowing</div>
@@ -288,7 +293,7 @@
             <div id="matchResults" class="match-list"></div>
           </div>
 
-          <div class="process-card ai-stage workflow-anchor" id="aiStage">
+          <div class="process-card ai-stage workflow-anchor premium-only" id="aiStage">
             <div class="process-head">
               <div>
                 <div class="process-step-kicker blue">Step 3 · Meridian AI Concierge</div>
@@ -358,7 +363,35 @@
       if(title) title.innerHTML = "Meridian <em>Link</em>";
       if(sub) sub.textContent = "Free Network - Simple Introductions - Light Console";
       if(heroTitle) heroTitle.textContent = "Your lighter connection home.";
-      if(heroCopy) heroCopy.textContent = "Search for the right person, send a thoughtful introduction request, and keep daily connection work simple.";
+      if(heroCopy) heroCopy.textContent = "Search by real name and useful profile signals, send a thoughtful introduction request, and keep connection work simple. AI and private graph tools stay in the full Meridian console.";
+      const searchLabel = document.querySelector(".search-card .detail-label");
+      const searchTitle = document.querySelector(".search-title");
+      const searchHint = document.querySelector(".search-head .tiny");
+      const matchInput = $("matchQuery");
+      const runButton = $("runMatchBtn");
+      const proceedButton = $("proceedToRefinementBtn");
+      const shortlistKicker = document.querySelector(".shortlist-stage .process-step-kicker");
+      const shortlistTitle = document.querySelector(".shortlist-stage .process-title");
+      const shortlistChip = document.querySelector(".shortlist-stage .step-chip");
+      const flowTitle = document.querySelector(".flow-stage.step-one .flow-stage-title");
+      const flowHead = document.querySelector(".flow-stage.step-one .flow-stage-head");
+      const flowCopy = document.querySelector(".flow-stage.step-one .flow-stage-copy");
+      const flowTag = document.querySelector(".flow-stage.step-one .flow-stage-tag");
+      const workflowTitle = document.querySelector(".workflow-title");
+      if(searchLabel) searchLabel.textContent = "Step 1 - Find People";
+      if(searchTitle) searchTitle.textContent = "Search simple connection matches";
+      if(searchHint) searchHint.textContent = "Free mode";
+      if(matchInput) matchInput.placeholder = "Example: Need a product leader in healthcare";
+      if(runButton) runButton.textContent = "Search People";
+      if(proceedButton) proceedButton.textContent = "Review Shortlist";
+      if(shortlistKicker) shortlistKicker.textContent = "Step 2 - Basic Shortlist";
+      if(shortlistTitle) shortlistTitle.textContent = "Review a limited set of people";
+      if(shortlistChip) shortlistChip.textContent = "Free - Limited - Non-AI";
+      if(flowTitle) flowTitle.textContent = "Step 2 - Meridian Link Results";
+      if(flowHead) flowHead.textContent = "Your simple shortlist";
+      if(flowCopy) flowCopy.textContent = "Review a smaller set of people and send a direct introduction request when there is a fit.";
+      if(flowTag) flowTag.textContent = "Real names - Simple - Human";
+      if(workflowTitle) workflowTitle.textContent = "Keep the free connection flow simple.";
       if(link){
         link.textContent = "Private Meridian";
         link.href = "/";
@@ -373,7 +406,7 @@
     function scrollToRefinement(){ const el = $('shortlistStage') || document.querySelector('.process-card.shortlist-stage'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }
     function scrollToAiStage(){ const el = $('aiStage') || document.querySelector('.process-card.ai-stage'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }
     function setWorkflowStage(stage){
-      workflowStage = stage;
+      workflowStage = isLinkExperience && stage > 2 ? 2 : stage;
       const status = $('workflowStatus');
       const copy = $('workflowCopy');
       const step1Meta = $('workflowStep1Meta');
@@ -381,24 +414,32 @@
       const step3Meta = $('workflowStep3Meta');
       [['workflowStep1',1],['workflowStep2',2],['workflowStep3',3]].forEach(([id, num]) => {
         const node = $(id);
-        if(node) node.classList.toggle('active', num === stage);
+        if(node) node.classList.toggle('active', num === workflowStage);
       });
       if(status){
-        status.className = `workflow-status step${stage}`;
-        status.textContent = `Step ${stage} Active`;
+        status.className = `workflow-status step${workflowStage}`;
+        status.textContent = `Step ${workflowStage} Active`;
       }
       if(step1Meta) step1Meta.textContent = lastMatchQuery ? `Brief loaded: ${lastMatchQuery.slice(0, 48)}${lastMatchQuery.length > 48 ? '...' : ''}` : 'Waiting for search brief';
       if(step2Meta) step2Meta.textContent = lastMatchResults.length ? `${lastMatchResults.length} shortlist result${lastMatchResults.length === 1 ? '' : 's'} ready to review` : 'No shortlist yet';
-      if(step3Meta) step3Meta.textContent = $('aiSummaryCard') && $('aiSummaryCard').style.display === 'block' ? 'AI summary is open for narrowing' : (aiChatMessages.length ? 'AI chat is active on this shortlist' : 'AI not started');
+      if(step3Meta) step3Meta.textContent = isLinkExperience ? 'AI is disabled in Meridian Link' : ($('aiSummaryCard') && $('aiSummaryCard').style.display === 'block' ? 'AI summary is open for narrowing' : (aiChatMessages.length ? 'AI chat is active on this shortlist' : 'AI not started'));
       if(copy){
-        copy.textContent = stage === 1
-          ? 'Start with the brief, then move directly into the grounded shortlist once Meridian returns results.'
-          : stage === 2
-            ? 'The shortlist is ready. Review the returned members here first, then move into AI once the candidate set feels right.'
-            : 'AI narrowing is now active. Keep the shortlist and the refinement layer in the same operating view while you decide the introduction path.';
+        copy.textContent = isLinkExperience
+          ? (workflowStage === 1
+            ? 'Start with a plain-language search. Meridian Link returns a smaller, non-AI shortlist.'
+            : 'Review the limited shortlist and send a simple introduction request when there is a fit.')
+          : (workflowStage === 1
+            ? 'Start with the brief, then move directly into the grounded shortlist once Meridian returns results.'
+            : workflowStage === 2
+              ? 'The shortlist is ready. Review the returned members here first, then move into AI once the candidate set feels right.'
+              : 'AI narrowing is now active. Keep the shortlist and the refinement layer in the same operating view while you decide the introduction path.');
       }
     }
     function aliasValue(entity, fallback='Unassigned Alias'){ if(!entity) return fallback; if(typeof entity === 'string'){ const fromCache = profileCache[entity]; if(fromCache && fromCache.alias_name) return fromCache.alias_name; if(currentProfile && currentProfile.gmid === entity && currentProfile.alias_name) return currentProfile.alias_name; return fallback; } return entity.alias_name || fallback; }
+    function displayValue(entity, fallback='Member'){ if(!isLinkExperience) return aliasValue(entity, fallback); if(!entity) return fallback; if(typeof entity === 'string'){ const fromCache = profileCache[entity]; if(fromCache) return fromCache.display_name || fromCache.alias_name || fallback; if(currentProfile && currentProfile.gmid === entity) return currentProfile.display_name || currentProfile.alias_name || fallback; return fallback; } return entity.display_name || entity.alias_name || fallback; }
+    function personValue(entity, fallback='Member'){ return isLinkExperience ? displayValue(entity, fallback) : aliasValue(entity, fallback); }
+    function personMeta(profile){ const roles = (profile && profile.roles || []).slice(0,2).join(' - ') || 'Meridian member'; return isLinkExperience ? roles : `${mask(profile.gmid)} - ${roles}`; }
+    function itemPartyName(item){ if(!item) return 'Member'; if(!isLinkExperience) return aliasValue(otherParty(item)); const sentByMe = item.requester_gmid === GMID; return (sentByMe ? item.target_display_name : item.requester_display_name) || displayValue(otherParty(item), 'Member'); }
 
     function isBlocked(gmid){ return blockedMap.has(gmid); }
     async function loadBlocked(){ const res = await api('/api/blocks'); blockedMap = new Map((res.items || []).map(x => [x.gmid, x])); }
@@ -419,17 +460,17 @@
     function initials(text){ const parts=(text.match(/[A-Z][a-z]*/g)||[text]); return parts.slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
     function mask(gmid){ const s=(gmid||'').replace(/[^a-fA-F0-9]/g,''); return s.length<8 ? s : s.substring(0,4)+'·'.repeat(Math.max(4,s.length-8))+s.substring(s.length-4); }
     function fmt(ts){ try{ return new Date(ts).toLocaleString(); } catch { return ts || '—'; } }
-    async function api(url, opts={}){ const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts }); if(!res.ok) throw new Error(await res.text()); return res.json(); }
+    async function api(url, opts={}){ const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) }; if(isLinkExperience) headers['X-Meridian-Experience'] = 'link'; const res = await fetch(url, { ...opts, headers }); if(!res.ok) throw new Error(await res.text()); return res.json(); }
     async function getProfile(gmid){ if(profileCache[gmid]) return profileCache[gmid]; const res = await api(`/api/profile/${gmid}`); profileCache[gmid] = res.profile; return res.profile; }
     let revealGmid = false;
     function renderMyGmid(){ const el=$('memberGmid'), btn=$('toggleGmidBtn'); if(!el||!btn) return; el.textContent = revealGmid ? GMID : mask(GMID); btn.textContent = revealGmid ? 'Hide' : 'Reveal'; }
-    async function loadProfile(){ const res = await api(`/api/profile/${GMID}`); currentProfile = res.profile; $('memberName').textContent = currentProfile.display_name; $('memberMeta').textContent = `${mask(GMID)} · ${aliasValue(currentProfile)}`; $('memberAv').textContent = initials(aliasValue(currentProfile)); renderMyGmid(); renderProfileHome(); }
+    async function loadProfile(){ const res = await api(`/api/profile/${GMID}`); currentProfile = res.profile; $('memberName').textContent = currentProfile.display_name; $('memberMeta').textContent = isLinkExperience ? 'Meridian Link - Free basic access' : `${mask(GMID)} - ${aliasValue(currentProfile)}`; $('memberAv').textContent = initials(isLinkExperience ? currentProfile.display_name : aliasValue(currentProfile)); renderMyGmid(); renderProfileHome(); }
     function renderProfileHome(){
       if(!currentProfile) return;
       const roles=(currentProfile.roles||[]).slice(0,2).join(' · ');
       const domains=(currentProfile.domains||[]).slice(0,3);
-      $('profileAlias').textContent = aliasValue(currentProfile);
-      $('profileHeadline').textContent = `${currentProfile.display_name}${roles ? ' · '+roles : ''}`;
+      $('profileAlias').textContent = isLinkExperience ? currentProfile.display_name : aliasValue(currentProfile);
+      $('profileHeadline').textContent = isLinkExperience ? `Free profile${roles ? ' - '+roles : ''}` : `${currentProfile.display_name}${roles ? ' - '+roles : ''}`;
       $('profileChips').innerHTML = domains.map(d => `<span class="chip">${escapeHtml(d)}</span>`).join('') || '<span class="chip">Meridian Member</span>';
       $('profileAssets').innerHTML = ((currentProfile.assets||[]).slice(0,3).map(x => `• ${escapeHtml(x)}`).join('<br>')) || 'Complete your profile over time to improve concierge match quality.';
       $('heroStrength').textContent = currentProfile.strength_score || 0;
@@ -499,7 +540,7 @@
     function priorityPreviewHtml(items, tone){
       return items.slice(0,2).map(item => {
         const whoGmid = otherParty(item);
-        const who = aliasValue(whoGmid);
+        const who = itemPartyName(item);
         const direction = item.requester_gmid===GMID ? 'Sent by you' : 'Sent to you';
         return `<div class="priority-preview">
           <div class="priority-preview-main">
@@ -593,7 +634,7 @@
       root.innerHTML = '';
       for(const item of activeItems){
         const whoGmid = otherParty(item);
-        const who = aliasValue(whoGmid);
+        const who = itemPartyName(item);
         const div=document.createElement('div');
         div.className='ping'+(currentItem&&currentItem.id===item.id?' active':'');
         div.onclick=()=>selectItem(item.id);
@@ -612,7 +653,7 @@
       const requester = await getProfile(currentItem.requester_gmid);
       const target = await getProfile(currentItem.target_gmid);
       const whoGmid = otherParty(currentItem);
-      const whoAlias = aliasValue(whoGmid);
+      const whoAlias = isLinkExperience ? displayValue(whoGmid) : aliasValue(whoGmid);
       const isRecipient = currentItem.target_gmid === GMID;
       const readState = currentItem.status === 'pending' ? (currentItem.recipient_has_seen ? 'Read / Pending' : 'Unread / Pending') : `Read / ${currentItem.status === 'accepted' ? 'Accepted' : 'Declined'}`;
       const actionButtons = (currentItem.status === 'pending' && isRecipient)
@@ -624,8 +665,8 @@
       $('detailPane').innerHTML = `
         <div class="detail-head">
           <div>
-            <div class="detail-title">${whoAlias}</div>
-            <div class="detail-meta">${escapeHtml(whoAlias)} · ${mask(whoGmid)} · Thread #${currentItem.id}</div>
+            <div class="detail-title">${escapeHtml(whoAlias)}</div>
+            <div class="detail-meta">${isLinkExperience ? `Simple thread #${currentItem.id}` : `${escapeHtml(whoAlias)} - ${mask(whoGmid)} - Thread #${currentItem.id}`}</div>
           </div>
           <div class="status ${currentItem.status}">${currentItem.status}</div>
         </div>
@@ -636,12 +677,12 @@
       if(currentItem.status === 'accepted'){ await loadChat(); startChatPolling(); } else stopChatPolling();
     }
     async function respondCurrent(status){ if(!currentItem) return; await api(`/api/ping/${currentItem.id}/respond`, { method:'POST', body: JSON.stringify({ status }) }); await loadLists(); currentItem = activeItems.find(x => x.id === currentItem.id) || currentItem; await renderDetail(); }
-    async function loadChat(){ if(!currentItem || currentItem.status !== 'accepted') return; const res = await api(`/api/chat/${currentItem.id}`); const box = $('chatBox'); if(!box) return; if(!(res.messages||[]).length){ box.innerHTML = '<div class="tiny">No messages yet. Start the conversation below.</div>'; return; } box.innerHTML = ''; for(const m of res.messages){ const mine = m.sender_gmid === GMID; const who = mine ? 'You' : aliasValue(m.sender_gmid); const msg = document.createElement('div'); msg.className = 'msg' + (mine ? ' me' : ''); msg.innerHTML = `<div class="bubble"><div class="msg-meta">${who} · ${fmt(m.created_at)}</div><div class="msg-text">${escapeHtml(m.message)}</div></div>`; box.appendChild(msg); } box.scrollTop = box.scrollHeight; }
+    async function loadChat(){ if(!currentItem || currentItem.status !== 'accepted') return; const res = await api(`/api/chat/${currentItem.id}`); const box = $('chatBox'); if(!box) return; if(!(res.messages||[]).length){ box.innerHTML = '<div class="tiny">No messages yet. Start the conversation below.</div>'; return; } box.innerHTML = ''; for(const m of res.messages){ const mine = m.sender_gmid === GMID; const who = mine ? 'You' : personValue(m.sender_gmid); const msg = document.createElement('div'); msg.className = 'msg' + (mine ? ' me' : ''); msg.innerHTML = `<div class="bubble"><div class="msg-meta">${escapeHtml(who)} - ${fmt(m.created_at)}</div><div class="msg-text">${escapeHtml(m.message)}</div></div>`; box.appendChild(msg); } box.scrollTop = box.scrollHeight; }
     async function sendChat(){ const ta = $('chatMessage'); if(!ta || !currentItem) return; const message = ta.value.trim(); if(!message) return; await api(`/api/chat/${currentItem.id}/send`, { method:'POST', body: JSON.stringify({ sender_gmid: GMID, message }) }); ta.value = ''; await loadChat(); }
     function startChatPolling(){ stopChatPolling(); chatTimer = setInterval(()=>{ if(!document.hidden) loadChat(); }, 8000); }
     function stopChatPolling(){ if(chatTimer){ clearInterval(chatTimer); chatTimer = null; } }
     function renderOffRecordLayer(){
-      if(!currentItem || currentItem.status !== 'accepted') return '';
+      if(isLinkExperience || !currentItem || currentItem.status !== 'accepted') return '';
       const copy = "Move this conversation into Meridian's Off-Record Layer. Messages there are never written to chat history and disappear for both sides the moment either person closes the room.";
       return `<div class="offrecord-indicator"><div class="offrecord-row"><div class="offrecord-badge">Off-Record Layer</div><button class="offrecord-link" type="button" onclick="openOffRecordLayer()">Move Off-Record</button></div><div class="offrecord-copy">${copy}</div></div>`;
     }
@@ -667,6 +708,7 @@
     function buildRequestText(profile){
       const primaryRole = (profile.roles||[])[0] || 'trusted operator';
       const primaryDomain = (profile.domains||[])[0] || 'strategic delivery';
+      if(isLinkExperience) return `Meridian Link introduction request: I would like to connect with ${displayValue(profile, 'this member')} regarding ${primaryRole} experience in ${primaryDomain}.`;
       return `Confidential Meridian introduction request: seeking a conversation with this member regarding ${primaryRole} capability in ${primaryDomain}.`;
     }
     function renderDirectConciergeTarget(profile){
@@ -676,12 +718,12 @@
       $('detailPane').innerHTML = `
         <div class="detail-head">
           <div>
-            <div class="detail-title">${escapeHtml(aliasValue(profile))}</div>
-            <div class="detail-meta">${escapeHtml(mask(profile.gmid))} · ${escapeHtml((profile.roles||[]).slice(0,2).join(' · ') || 'Meridian Member')}</div>
+            <div class="detail-title">${escapeHtml(personValue(profile))}</div>
+            <div class="detail-meta">${escapeHtml(personMeta(profile))}</div>
           </div>
           <div class="status pending">Selected Member</div>
         </div>
-        <div class="detail-block"><div class="detail-label">Concierge Request</div><div class="tiny">You selected this member from Browse Members. Draft your note below and Meridian will deliver it directly into their inbox as a pending introduction.</div></div>
+        <div class="detail-block"><div class="detail-label">${isLinkExperience ? 'Introduction Request' : 'Concierge Request'}</div><div class="tiny">${isLinkExperience ? 'Draft a short note. Meridian Link will send a simple pending introduction request.' : 'You selected this member from Browse Members. Draft your note below and Meridian will deliver it directly into their inbox as a pending introduction.'}</div></div>
         <div class="detail-block"><div class="detail-label">Profile Signals</div><div class="brief">${escapeHtml((profile.assets||[])[0] || 'Profile available for confidential introduction.')}</div><div class="chips" style="margin-top:14px">${(profile.domains||[]).slice(0,4).map(x=>`<span class="chip">${escapeHtml(x)}</span>`).join('') || '<span class="chip">General</span>'}</div></div>
         <div class="detail-block"><div class="detail-label">Message</div><div class="composer-inline" style="display:block"><textarea id="directRequestText">${escapeHtml(buildRequestText(profile))}</textarea><div class="btns"><button class="btn green" type="button" onclick="sendDirectConciergePing('${profile.gmid}')">Send Introduction</button>${blockActionButton(profile.gmid)}<a class="btn blue" href="/members">Back to Browse</a></div></div></div>`;
     }
@@ -753,6 +795,7 @@
       root.scrollTop = root.scrollHeight;
     }
     async function loadAiSummary(){
+      if(isLinkExperience){ showNotice('AI disabled in Meridian Link', 'Upgrade to the private Meridian console for AI narrowing.', 'error'); return; }
       if(!lastMatchQuery || !lastMatchResults.length){ showNotice('Run a search first', 'Search matches first, then use Meridian AI on the grounded shortlist.', 'error'); return; }
       $('aiSummaryCard').style.display = 'block';
       $('aiSummaryCard').innerHTML = '<div class="detail-label">Step 3 · AI Concierge Summary</div><div class="muted-note">Reviewing the current shortlist…</div>';
@@ -767,6 +810,7 @@
       }
     }
     async function askAiAboutMatches(){
+      if(isLinkExperience){ showNotice('AI disabled in Meridian Link', 'Meridian Link uses non-AI search and simple introductions only.', 'error'); return; }
       if(!lastMatchQuery || !lastMatchResults.length){ showNotice('Run a search first', 'Search matches before opening the shortlist AI chat.', 'error'); return; }
       const input = $('aiChatInput');
       const question = input.value.trim();
@@ -793,24 +837,24 @@
       $('aiSummaryCard').style.display = 'none';
       $('aiChatShell').style.display = 'none';
       $('searchFeedback').classList.remove('hide');
-      $('searchResultCount').textContent = 'Searching trusted matches…';
-      $('searchResultSub').textContent = 'Meridian is building your grounded shortlist now.';
+      $('searchResultCount').textContent = isLinkExperience ? 'Searching people...' : 'Searching trusted matches...';
+      $('searchResultSub').textContent = isLinkExperience ? 'Meridian Link is building a limited non-AI shortlist.' : 'Meridian is building your grounded shortlist now.';
       const root = $('matchResults');
-      root.innerHTML = '<div class="empty" style="grid-column:1/-1">Searching current member network…</div>';
+      root.innerHTML = `<div class="empty" style="grid-column:1/-1">${isLinkExperience ? 'Searching available profiles...' : 'Searching current member network...'}</div>`;
       const res = await api('/api/match', { method:'POST', body: JSON.stringify({ requester_gmid: GMID, query: q }) });
-      const items = (res.results||[]);
+      const items = (res.results||[]).slice(0, isLinkExperience ? 4 : 10);
       lastMatchResults = items;
       const count = items.length;
       setWorkflowStage(count ? 2 : 1);
-      $('searchResultCount').textContent = `${count} trusted ${count===1 ? 'match' : 'matches'} returned`;
-      $('searchResultSub').textContent = count ? 'Review the returned aliases below, then proceed into refinement and AI narrowing.' : 'No matches came back for that brief. Adjust the search and run again.';
+      $('searchResultCount').textContent = `${count} ${isLinkExperience ? 'people' : 'trusted'} ${count===1 ? 'match' : 'matches'} returned`;
+      $('searchResultSub').textContent = count ? (isLinkExperience ? 'Review this limited free shortlist and send a simple introduction request.' : 'Review the returned aliases below, then proceed into refinement and AI narrowing.') : 'No matches came back for that brief. Adjust the search and run again.';
       if(!items.length){ root.innerHTML = '<div class="empty" style="grid-column:1/-1">No aligned member matches found for that brief.</div>'; return; }
       root.innerHTML = items.map(({score, profile, reasons}) => { const connected = isConnected(profile.gmid); return `
         <div class="match-card ${connected ? 'connected-glow' : ''}">
           <div class="match-top">
             <div>
-              <div class="match-name">${escapeHtml(aliasValue(profile))}</div>
-              <div class="match-meta">${escapeHtml(mask(profile.gmid))} · ${escapeHtml((profile.roles||[]).slice(0,2).join(' · ') || 'Meridian Member')}</div>
+              <div class="match-name">${escapeHtml(personValue(profile))}</div>
+              <div class="match-meta">${escapeHtml(personMeta(profile))}</div>
               ${connected ? '<div class="connection-pill">Connected on Meridian</div>' : ''}
             </div>
             <div class="score-badge">Match ${score}</div>

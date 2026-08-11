@@ -1516,10 +1516,13 @@ async def api_match(request: Request):
     requester = (data.get("requester_gmid") or "").strip()
     if not q:
         raise HTTPException(status_code=400, detail="query is required")
-    return JSONResponse(content=jsonable_encoder(make_match_payload(q, requester, 10)))
+    is_link_mode = (request.headers.get("x-meridian-experience") or "").lower() == "link"
+    return JSONResponse(content=jsonable_encoder(make_match_payload(q, requester, 4 if is_link_mode else 10)))
 
 @app.post("/api/ai/match-summary")
 async def api_ai_match_summary(request: Request):
+    if (request.headers.get("x-meridian-experience") or "").lower() == "link":
+        raise HTTPException(status_code=403, detail="AI is not enabled in Meridian Link")
     data = await request.json()
     q = (data.get("query") or "").strip()
     requester = (data.get("requester_gmid") or "").strip()
@@ -1533,6 +1536,8 @@ async def api_ai_match_summary(request: Request):
 
 @app.post("/api/ai/match-chat")
 async def api_ai_match_chat(request: Request):
+    if (request.headers.get("x-meridian-experience") or "").lower() == "link":
+        raise HTTPException(status_code=403, detail="AI is not enabled in Meridian Link")
     data = await request.json()
     q = (data.get("query") or "").strip()
     requester = (data.get("requester_gmid") or "").strip()
@@ -1632,6 +1637,8 @@ def api_inbox(gmid: str, limit: int = 200):
             cur.execute("""SELECT p.*,
                                   req.alias_name AS requester_alias,
                                   tgt.alias_name AS target_alias,
+                                  req.display_name AS requester_display_name,
+                                  tgt.display_name AS target_display_name,
                                   CASE WHEN p.recipient_seen_at IS NULL THEN FALSE ELSE TRUE END AS recipient_has_seen
                            FROM pings p
                            LEFT JOIN members req ON req.gmid=p.requester_gmid
@@ -1654,6 +1661,8 @@ def api_outbox(gmid: str, limit: int = 200):
             cur.execute("""SELECT p.*,
                                   req.alias_name AS requester_alias,
                                   tgt.alias_name AS target_alias,
+                                  req.display_name AS requester_display_name,
+                                  tgt.display_name AS target_display_name,
                                   CASE WHEN p.recipient_seen_at IS NULL THEN FALSE ELSE TRUE END AS recipient_has_seen
                            FROM pings p
                            LEFT JOIN members req ON req.gmid=p.requester_gmid
